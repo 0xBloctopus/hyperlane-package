@@ -8,6 +8,9 @@ safe_get = helpers_module.safe_get
 as_bool = helpers_module.as_bool
 log_info = helpers_module.log_info
 
+cli_module = import_module("../infrastructure/cli.star")
+sanitize_chain_name = cli_module.sanitize_chain_name
+
 constants = get_constants()
 
 # ============================================================================
@@ -50,14 +53,15 @@ def deploy_core_contracts(plan, chains, deployer_key):
     # Read and store the deployed addresses for each chain
     for chain in chains_needing_core:
         chain_name = getattr(chain, "name", "")
-        
+        sanitized_name = sanitize_chain_name(chain_name)
+
         # Read the addresses YAML file and convert to JSON for extraction
         result = plan.exec(
             service_name="hyperlane-cli",
             recipe=ExecRecipe(
                 command=[
                     "sh", "-c",
-                    "yq -o=json '.' /configs/registry/chains/{}/addresses.yaml".format(chain_name),
+                    "yq -o=json '.' /configs/registry/chains/{}/addresses.yaml".format(sanitized_name),
                 ],
                 extract={
                     "mailbox": "fromjson | .mailbox",
