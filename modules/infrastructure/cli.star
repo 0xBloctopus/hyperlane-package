@@ -77,9 +77,15 @@ def sanitize_chain_name(name):
 
     # Remove all non-alphanumeric characters and convert to lowercase
     # This ensures compatibility with Hyperlane CLI v18.2.0
+    # In Starlark, we need to use string methods instead of iteration
+    lower_name = name.lower()
     sanitized = ""
-    for char in name.lower():
-        if char.isalnum():
+
+    # Use index-based iteration for Starlark compatibility
+    for i in range(len(lower_name)):
+        char = lower_name[i]
+        # Check if character is alphanumeric (a-z, 0-9)
+        if (char >= 'a' and char <= 'z') or (char >= '0' and char <= '9'):
             sanitized += char
 
     return sanitized
@@ -104,9 +110,8 @@ def extract_chain_info(chains):
         # Sanitize the chain name for Hyperlane CLI compatibility
         name = sanitize_chain_name(original_name)
 
-        # Log the sanitization for debugging
-        if name != original_name:
-            print("Sanitized chain name: '{}' -> '{}'".format(original_name, name))
+        # Note: Chain name is sanitized from '{}' to '{}' for Hyperlane CLI compatibility
+        # (Can't use print in Kurtosis Starlark)
 
         chain_names.append(name)
 
