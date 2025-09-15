@@ -61,6 +61,30 @@ def build_cli_service(plan, chains, global_settings, deployer_key):
 # ============================================================================
 
 
+def sanitize_chain_name(name):
+    """
+    Sanitize chain name for Hyperlane CLI compatibility
+    Removes hyphens, underscores, and spaces to create alphanumeric-only names
+
+    Args:
+        name: Original chain name (e.g., "cheerful-owl", "brave_lion")
+
+    Returns:
+        Sanitized name (e.g., "cheerfulowl", "bravelion")
+    """
+    if not name:
+        return ""
+
+    # Remove all non-alphanumeric characters and convert to lowercase
+    # This ensures compatibility with Hyperlane CLI v18.2.0
+    sanitized = ""
+    for char in name.lower():
+        if char.isalnum():
+            sanitized += char
+
+    return sanitized
+
+
 def extract_chain_info(chains):
     """
     Extract and format chain information for CLI
@@ -76,7 +100,14 @@ def extract_chain_info(chains):
     id_pairs = {}
 
     for chain in chains:
-        name = getattr(chain, "name", "")
+        original_name = getattr(chain, "name", "")
+        # Sanitize the chain name for Hyperlane CLI compatibility
+        name = sanitize_chain_name(original_name)
+
+        # Log the sanitization for debugging
+        if name != original_name:
+            print("Sanitized chain name: '{}' -> '{}'".format(original_name, name))
+
         chain_names.append(name)
 
         # Add RPC URL
