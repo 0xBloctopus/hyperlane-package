@@ -7,6 +7,13 @@ helpers_module = import_module("../utils/helpers.star")
 safe_get = helpers_module.safe_get
 as_bool = helpers_module.as_bool
 
+validator_module = import_module("./validator.star")
+resolve_chain_name = validator_module.resolve_chain_name
+
+ism_module = import_module("./ism_config.star")
+build_ism_config = ism_module.build_ism_config
+validate_ism_config = ism_module.validate_ism_config
+
 constants = get_constants()
 
 # ============================================================================
@@ -54,7 +61,7 @@ def parse_configuration(args):
 
 def parse_ism_config(ism_config):
     """
-    Parse ISM configuration
+    Parse ISM configuration with enhanced type support
 
     Args:
         ism_config: Raw ISM configuration
@@ -62,7 +69,11 @@ def parse_ism_config(ism_config):
     Returns:
         Structured ISM configuration
     """
-    return struct(
+    # Validate the ISM configuration first
+    validate_ism_config(ism_config)
+    
+    # Parse basic ISM structure
+    parsed_ism = struct(
         type=safe_get(ism_config, "type", "trustedRelayer"),
         validators=safe_get(ism_config, "validators", []),
         threshold=safe_get(ism_config, "threshold", 1),
@@ -72,6 +83,8 @@ def parse_ism_config(ism_config):
         modules=safe_get(ism_config, "modules", []),
         domains=safe_get(ism_config, "domains", {}),
     )
+    
+    return parsed_ism
 
 
 def parse_agent_config(agents):
@@ -120,18 +133,21 @@ def parse_global_config(global_config):
     """
     # Parse ISM configuration if provided
     raw_ism = safe_get(global_config, "ism", {})
+    parsed_ism = parse_ism_config(raw_ism)
 
     return struct(
         agent_tag=safe_get(
             global_config, "agent_image_tag", constants.DEFAULT_AGENT_TAG
         ),
-        ism=parse_ism_config(raw_ism),
+        ism=parsed_ism,
         cli_version=safe_get(
             global_config, "cli_version", constants.DEFAULT_CLI_VERSION
         ),
         registry_mode=safe_get(
             global_config, "registry_mode", constants.DEFAULT_REGISTRY_MODE
         ),
+        # Additional ISM build configuration for deployment
+        ism_build_config=build_ism_config(raw_ism, ""),
     )
 
 
@@ -150,8 +166,14 @@ def parse_chain_config(chain):
     Returns:
         Structured chain configuration
     """
+    original_name = safe_get(chain, "name", "")
+    resolved_name, is_custom = resolve_chain_name(original_name)
+    
+    # Store both original and resolved names for reference
     return struct(
-        name=safe_get(chain, "name", ""),
+        name=original_name,  # Keep original name for display purposes
+        normalized_name=resolved_name,  # Use normalized name for internal operations
+        is_custom_name=is_custom,
         rpc_url=safe_get(chain, "rpc_url", ""),
         chain_id=safe_get(chain, "chain_id", None),
         deploy_core=as_bool(safe_get(chain, "deploy_core", False), False),
