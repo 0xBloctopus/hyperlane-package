@@ -7,9 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source common utilities - use absolute path in container
 if [ -f "/usr/local/bin/common.sh" ]; then
     source "/usr/local/bin/common.sh"
-elif [ -f "../../utils/shell/common.sh" ]; then
-    # Fallback for local development
-    source "${SCRIPT_DIR}/../../utils/shell/common.sh"
 else
     echo "ERROR: Could not find common.sh"
     exit 1
@@ -18,9 +15,6 @@ fi
 # Source template processor
 if [ -f "/usr/local/bin/template_processor.sh" ]; then
     source "/usr/local/bin/template_processor.sh"
-elif [ -f "../../utils/shell/template_processor.sh" ]; then
-    # Fallback for local development
-    source "${SCRIPT_DIR}/../../utils/shell/template_processor.sh"
 else
     echo "ERROR: Could not find template_processor.sh"
     exit 1

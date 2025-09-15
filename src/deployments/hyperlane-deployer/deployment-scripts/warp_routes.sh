@@ -3,7 +3,14 @@
 
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../../utils/shell/common.sh"
+
+# Source common utilities - use absolute path in container
+if [ -f "/usr/local/bin/common.sh" ]; then
+    source "/usr/local/bin/common.sh"
+else
+    echo "ERROR: Could not find common.sh"
+    exit 1
+fi
 
 # ============================================================================
 # CONSTANTS
