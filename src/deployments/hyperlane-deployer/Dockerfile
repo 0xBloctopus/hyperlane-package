@@ -25,21 +25,21 @@ WORKDIR /work
 RUN npm init -y && npm i ethers yaml
 
 # Copy deployment scripts (these need to be copied into build context)
-COPY deploy_core.sh /usr/local/bin/deploy_core.sh
-COPY warp_routes.sh /usr/local/bin/warp_routes.sh
-COPY seed_liquidity.sh /usr/local/bin/seed_liquidity.sh
+COPY deployment-scripts/deploy_core.sh /usr/local/bin/deploy_core.sh
+COPY deployment-scripts/warp_routes.sh /usr/local/bin/warp_routes.sh
+COPY deployment-scripts/seed_liquidity.sh /usr/local/bin/seed_liquidity.sh
 
 # Copy utility scripts
-COPY scripts/send_warp.sh /usr/local/bin/send_warp.sh
-COPY scripts/balances.js /usr/local/bin/balances.js
-COPY scripts/parse_txhash.js /usr/local/bin/parse_txhash.js
+COPY utilities/send_warp.sh /usr/local/bin/send_warp.sh
+COPY utilities/balances.js /usr/local/bin/balances.js
+COPY utilities/parse_txhash.js /usr/local/bin/parse_txhash.js
 
 # Copy common utilities
 COPY common.sh /usr/local/bin/common.sh
-COPY template_processor.sh /usr/local/bin/template_processor.sh
+COPY utilities/template_processor.sh /usr/local/bin/template_processor.sh
 
 # Copy agent config generator
-COPY agent-config-generator.js /work/agent-config-generator.js
+COPY config-tools/agent-config-generator.js /work/agent-config-generator.js
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/*.sh
