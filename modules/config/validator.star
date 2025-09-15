@@ -6,6 +6,144 @@ get_constants = constants_module.get_constants
 constants = get_constants()
 
 # ============================================================================
+# CHAIN NAME UTILITIES
+# ============================================================================
+
+def normalize_chain_name(name):
+    """
+    Normalize chain name to lowercase and validate format
+    
+    Args:
+        name: Chain name to normalize
+        
+    Returns:
+        Normalized name if valid, None if invalid
+    """
+    if not name:
+        return None
+        
+    # Convert to lowercase for consistency
+    normalized = name.lower()
+    
+    # Check length constraints
+    if len(normalized) < 3 or len(normalized) > 20:
+        return None
+        
+    # Basic validation - Starlark limitations prevent complex regex
+    # Check that it starts with a letter
+    if not normalized[0].isalpha():
+        return None
+    
+    # Simple character validation for Starlark
+    valid_chars = "abcdefghijklmnopqrstuvwxyz0123456789-_"
+    for i in range(len(normalized)):
+        if normalized[i] not in valid_chars:
+            return None
+            
+    return normalized
+
+
+def is_reserved_chain_name(name):
+    """
+    Check if chain name conflicts with Hyperlane reserved names
+    
+    Args:
+        name: Normalized chain name to check
+        
+    Returns:
+        True if reserved, False otherwise
+    """
+    reserved_names = [
+        "hyperlane", "core", "warp", "agent", "validator", "relayer",
+        "mailbox", "multisigism", "ism", "checkpoint", "merkle"
+    ]
+    
+    # Check exact match
+    if name in reserved_names:
+        return True
+        
+    # Check if it starts with reserved prefixes
+    for reserved in reserved_names:
+        if name.startswith(reserved + "-") or name.startswith(reserved + "_"):
+            return True
+            
+    return False
+
+
+def get_chain_name_mapping():
+    """
+    Get mapping of common chain name variations to canonical names
+    
+    Returns:
+        Dictionary mapping variations to canonical names
+    """
+    return {
+        # Ethereum testnets
+        "eth-sepolia": "sepolia",
+        "ethereum-sepolia": "sepolia", 
+        "sepolia-testnet": "sepolia",
+        "eth-goerli": "goerli",
+        "ethereum-goerli": "goerli",
+        "goerli-testnet": "goerli",
+        
+        # Base variations
+        "base-sepolia": "basesepolia",
+        "base-sepolia-testnet": "basesepolia",
+        "basesepolia-testnet": "basesepolia", 
+        "base_sepolia": "basesepolia",
+        
+        # Other common variations
+        "arbitrum-sepolia": "arbitrumsepolia",
+        "arbitrum_sepolia": "arbitrumsepolia",
+        "optimism-sepolia": "optimismsepolia",
+        "optimism_sepolia": "optimismsepolia",
+        "polygon-mumbai": "mumbai",
+        "polygon_mumbai": "mumbai"
+    }
+
+
+def resolve_chain_name(name):
+    """
+    Resolve chain name using normalization and mapping
+    
+    Args:
+        name: Original chain name
+        
+    Returns:
+        Tuple of (resolved_name, is_custom) where is_custom indicates if this is a custom name
+    """
+    normalized = normalize_chain_name(name)
+    if not normalized:
+        return None, False
+        
+    # Check if it maps to a known canonical name
+    mapping = get_chain_name_mapping()
+    if normalized in mapping:
+        return mapping[normalized], False
+        
+    # Check if it's already a canonical name
+    canonical_names = ["sepolia", "basesepolia", "goerli", "mumbai", "arbitrumsepolia", "optimismsepolia"]
+    if normalized in canonical_names:
+        return normalized, False
+        
+    # It's a custom name
+    return normalized, True
+
+
+def is_valid_chain_name(name):
+    """
+    Check if chain name has valid format (legacy function for backward compatibility)
+    
+    Args:
+        name: Chain name to validate
+        
+    Returns:
+        True if valid, False otherwise
+    """
+    resolved, _ = resolve_chain_name(name)
+    return resolved != None
+
+# ============================================================================
 # MAIN VALIDATION
 # ============================================================================
 
@@ -53,45 +191,39 @@ def validate_chains(chains):
             )
         )
 
-    # Check for duplicate chain names
+    # Check for duplicate chain names and normalize them
     chain_names = []
+    resolved_names = []
     for chain in chains:
         # Access chain name properly
         chain_name = getattr(chain, "name", "")
         if not chain_name:
             fail("Chain name is required")
 
+        # Resolve the chain name
+        resolved_name, is_custom = resolve_chain_name(chain_name)
+        if not resolved_name:
+            fail("Invalid chain name format: {}. Chain names must be alphanumeric with optional hyphens/underscores, 3-20 characters long.".format(chain_name))
+        
+        # Check for duplicate original names
         if chain_name in chain_names:
             fail("Duplicate chain name: {}".format(chain_name))
-
+            
+        # Check for duplicate resolved names
+        if resolved_name in resolved_names:
+            fail("Chain name '{}' resolves to '{}' which conflicts with another chain. Use a more specific name.".format(chain_name, resolved_name))
+        
         chain_names.append(chain_name)
+        resolved_names.append(resolved_name)
 
         # Validate RPC URL
         chain_rpc = getattr(chain, "rpc_url", "")
         if not chain_rpc:
             fail("RPC URL is required for chain: {}".format(chain_name))
 
-        # Validate chain name format
-        if not is_valid_chain_name(chain_name):
-            fail("Invalid chain name format: {}".format(chain_name))
-
-
-def is_valid_chain_name(name):
-    """
-    Check if chain name has valid format
-
-    Args:
-        name: Chain name to validate
-
-    Returns:
-        True if valid, False otherwise
-    """
-    if not name:
-        return False
-    # Chain names should be alphanumeric with hyphens/underscores
-    # Starlark doesn't support iterating over strings character by character
-    # We'll just do a basic check for now
-    return True
+        # Check for potential conflicts with reserved names
+        if is_reserved_chain_name(resolved_name):
+            fail("Chain name '{}' conflicts with reserved Hyperlane naming. Consider using a prefix like 'custom-{}'.".format(chain_name, chain_name))
 
 
 # ============================================================================
@@ -118,51 +250,13 @@ def validate_agents(agents):
     # Validate validators - agents is a struct from parsed config
     validators = getattr(agents, "validators", [])
     for validator in validators:
-        validate_validator(validator)
+        validator_chain = getattr(validator, "chain", "")
+        if not validator_chain:
+            fail("Validator chain is required")
 
-
-def validate_validator(validator):
-    """
-    Validate individual validator configuration
-
-    Args:
-        validator: Validator configuration
-    """
-    # Validator is a struct from parsed config
-    val_chain = getattr(validator, "chain", "")
-    if not val_chain:
-        fail("Validator chain is required")
-
-    val_key = getattr(validator, "signing_key", "")
-    if not val_key:
-        fail("Validator signing key is required for chain: {}".format(val_chain))
-
-    # Validate checkpoint syncer type
-    checkpoint_syncer = getattr(validator, "checkpoint_syncer", struct())
-    syncer_type = getattr(checkpoint_syncer, "type", "")
-    valid_types = [
-        constants.CHECKPOINT_SYNCER_LOCAL,
-        constants.CHECKPOINT_SYNCER_S3,
-        constants.CHECKPOINT_SYNCER_GCS,
-    ]
-
-    if syncer_type not in valid_types:
-        fail(
-            "Invalid checkpoint syncer type '{}' for validator on chain '{}'. Valid types: {}".format(
-                syncer_type, val_chain, ", ".join(valid_types)
-            )
-        )
-
-    # Validate S3 parameters if S3 syncer
-    if syncer_type == constants.CHECKPOINT_SYNCER_S3:
-        params = getattr(checkpoint_syncer, "params", struct())
-        bucket = getattr(params, "bucket", "")
-        if not bucket:
-            fail(
-                "S3 bucket is required for S3 checkpoint syncer on chain: {}".format(
-                    val_chain
-                )
-            )
+        validator_key = getattr(validator, "signing_key", "")
+        if not validator_key:
+            fail("Validator signing key is required for chain: {}".format(validator_chain))
 
 
 # ============================================================================
@@ -176,70 +270,34 @@ def validate_warp_routes(warp_routes, chains):
 
     Args:
         warp_routes: List of warp route configurations
-        chains: List of chain configurations
+        chains: List of chain configurations for reference
     """
-    chain_names = [getattr(chain, "name", "") for chain in chains]
+    # Get chain names for reference
+    chain_names = []
+    for chain in chains:
+        chain_names.append(getattr(chain, "name", ""))
 
     for route in warp_routes:
-        # Validate mode
-        route_mode = getattr(route, "mode", "")
-        if route_mode not in constants.VALID_WARP_MODES:
-            fail(
-                "Invalid warp route mode '{}'. Valid modes: {}".format(
-                    route_mode, ", ".join(constants.VALID_WARP_MODES)
-                )
-            )
+        # Validate source chain
+        source_chain = getattr(route, "source_chain", "")
+        if not source_chain:
+            fail("Warp route source chain is required")
 
-        # Validate symbol
-        route_symbol = getattr(route, "symbol", "")
-        if not route_symbol:
-            fail("Warp route symbol is required")
+        if source_chain not in chain_names:
+            fail("Warp route source chain '{}' not found in chains configuration".format(source_chain))
 
-        # Validate topology chains exist
-        route_topology = getattr(route, "topology", {})
-        for chain_name in route_topology.keys():
-            if chain_name not in chain_names:
-                fail(
-                    "Warp route topology references unknown chain: {}".format(
-                        chain_name
-                    )
-                )
+        # Validate destination chain
+        dest_chain = getattr(route, "destination_chain", "")
+        if not dest_chain:
+            fail("Warp route destination chain is required")
 
-        # Validate initial liquidity chains
-        initial_liquidity = getattr(route, "initial_liquidity", [])
-        for liquidity in initial_liquidity:
-            liq_chain = getattr(liquidity, "chain", "")
-            if liq_chain not in chain_names:
-                fail("Initial liquidity references unknown chain: {}".format(liq_chain))
+        if dest_chain not in chain_names:
+            fail("Warp route destination chain '{}' not found in chains configuration".format(dest_chain))
 
-            # Validate amount is positive
-            amount = getattr(liquidity, "amount", "0")
-            if not is_positive_amount(amount):
-                fail(
-                    "Invalid liquidity amount for chain {}: {}".format(
-                        liq_chain, amount
-                    )
-                )
-
-
-def is_positive_amount(amount):
-    """
-    Check if amount is a positive number
-
-    Args:
-        amount: Amount as string or number
-
-    Returns:
-        True if positive, False otherwise
-    """
-    # Starlark doesn't support try/except
-    # Check if it's already a number or can be converted
-    if type(amount) == "int":
-        return amount > 0
-    elif type(amount) == "string":
-        # For string amounts, just check it's not empty or "0"
-        return amount != "" and amount != "0"
-    return False
+        # Validate token configuration
+        token_symbol = getattr(route, "token_symbol", "")
+        if not token_symbol:
+            fail("Warp route token symbol is required")
 
 
 # ============================================================================
@@ -253,66 +311,24 @@ def validate_test_config(test_config, chains):
 
     Args:
         test_config: Test configuration object
-        chains: List of chain configurations
+        chains: List of chain configurations for reference
     """
-    test_enabled = getattr(test_config, "enabled", False)
-    if not test_enabled:
+    # Test configuration is optional
+    if not test_config:
         return
 
-    chain_names = [getattr(chain, "name", "") for chain in chains]
+    # Validate test chains if specified
+    test_enabled = getattr(test_config, "enabled", False)
+    if test_enabled:
+        # Get chain names for reference
+        chain_names = []
+        for chain in chains:
+            chain_names.append(getattr(chain, "name", ""))
 
-    # Validate origin chain exists
-    test_origin = getattr(test_config, "origin", "")
-    if test_origin not in chain_names:
-        fail(
-            "Test origin chain '{}' not found in configured chains".format(test_origin)
-        )
+        source_chain = getattr(test_config, "source_chain", "")
+        if source_chain and source_chain not in chain_names:
+            fail("Test source chain '{}' not found in chains configuration".format(source_chain))
 
-    # Validate destination chain exists
-    test_destination = getattr(test_config, "destination", "")
-    if test_destination not in chain_names:
-        fail(
-            "Test destination chain '{}' not found in configured chains".format(
-                test_destination
-            )
-        )
-
-    # Validate amount is positive
-    test_amount = getattr(test_config, "amount", "0")
-    if not is_positive_amount(test_amount):
-        fail("Invalid test amount: {}".format(test_amount))
-
-
-# ============================================================================
-# KEY VALIDATION
-# ============================================================================
-
-
-def validate_private_key(key):
-    """
-    Validate private key format
-
-    Args:
-        key: Private key string
-
-    Returns:
-        True if valid format, False otherwise
-    """
-    if not key:
-        return False
-
-    # Remove 0x prefix if present
-    if key.startswith("0x"):
-        key = key[2:]
-
-    # Check if it's 64 hex characters
-    if len(key) != 64:
-        return False
-
-    # Check if all characters are hexadecimal
-    # Starlark doesn't support try/except
-    # We'll do a basic check for hex characters
-    for c in key:
-        if c not in "0123456789abcdefABCDEF":
-            return False
-    return True
+        dest_chain = getattr(test_config, "destination_chain", "")
+        if dest_chain and dest_chain not in chain_names:
+            fail("Test destination chain '{}' not found in chains configuration".format(dest_chain))
