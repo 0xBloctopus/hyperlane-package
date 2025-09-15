@@ -126,6 +126,9 @@ def build_cli_environment(chain_info, global_settings, deployer_key):
         "MAX_RETRY_ATTEMPTS": str(constants.MAX_RETRY_ATTEMPTS),
         "RETRY_DELAY": str(constants.RETRY_DELAY),
         "TEMPLATE_DIR": "/templates",
+        # Hyperlane CLI environment variables for custom chains
+        "HYP_REGISTRY": constants.REGISTRY_DIR,
+        "HYP_CHAINS_FILE": constants.REGISTRY_DIR + "/chains.yaml",
     }
 
     # Add ISM configuration if provided

@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y curl git wget && \
     chmod +x /usr/local/bin/yq && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Hyperlane CLI
-ARG CLI_VERSION=16.2.0
+# Install Hyperlane CLI (updated to latest stable version)
+ARG CLI_VERSION=18.2.0
 RUN npm i -g @hyperlane-xyz/cli@${CLI_VERSION}
 
 # Set working directory first
