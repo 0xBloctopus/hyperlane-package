@@ -13,8 +13,18 @@ generate_ism_from_template() {
         "multisig"|"messageIdMultisig")
             # Get validators and threshold from environment
             local validators="${ISM_VALIDATORS:-$deployer_address}"
-            local threshold="${ISM_THRESHOLD:-1}"
-            
+            local requested_threshold="${ISM_THRESHOLD:-1}"
+
+            # Count the number of validators
+            local validator_count=$(echo "$validators" | awk -F',' '{print NF}')
+
+            # Ensure threshold doesn't exceed validator count
+            local threshold=$requested_threshold
+            if [ $threshold -gt $validator_count ]; then
+                echo "[WARN] Threshold ($requested_threshold) exceeds validator count ($validator_count), adjusting to $validator_count" >&2
+                threshold=$validator_count
+            fi
+
             # Convert comma-separated validators to JSON array
             local validators_json=$(echo "$validators" | awk -F',' '{
                 printf "["
@@ -25,7 +35,7 @@ generate_ism_from_template() {
                 }
                 printf "]"
             }')
-            
+
             cat <<EOF
 {
   "type": "messageIdMultisigIsm",
@@ -38,8 +48,18 @@ EOF
         "merkleRootMultisig"|"merkleRootMultisigIsm")
             # Get validators and threshold from environment
             local validators="${ISM_VALIDATORS:-$deployer_address}"
-            local threshold="${ISM_THRESHOLD:-1}"
-            
+            local requested_threshold="${ISM_THRESHOLD:-1}"
+
+            # Count the number of validators
+            local validator_count=$(echo "$validators" | awk -F',' '{print NF}')
+
+            # Ensure threshold doesn't exceed validator count
+            local threshold=$requested_threshold
+            if [ $threshold -gt $validator_count ]; then
+                echo "[WARN] Threshold ($requested_threshold) exceeds validator count ($validator_count), adjusting to $validator_count" >&2
+                threshold=$validator_count
+            fi
+
             # Convert comma-separated validators to JSON array
             local validators_json=$(echo "$validators" | awk -F',' '{
                 printf "["
@@ -50,7 +70,7 @@ EOF
                 }
                 printf "]"
             }')
-            
+
             cat <<EOF
 {
   "type": "merkleRootMultisigIsm",
