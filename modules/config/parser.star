@@ -14,6 +14,11 @@ ism_module = import_module("./ism_config.star")
 build_ism_config = ism_module.build_ism_config
 validate_ism_config = ism_module.validate_ism_config
 
+mainnet_addresses_module = import_module("./mainnet_addresses.star")
+get_mainnet_addresses = mainnet_addresses_module.get_mainnet_addresses
+get_testnet_addresses = mainnet_addresses_module.get_testnet_addresses
+get_addresses_by_chain_id = mainnet_addresses_module.get_addresses_by_chain_id
+
 constants = get_constants()
 
 # ============================================================================
@@ -168,16 +173,55 @@ def parse_chain_config(chain):
     """
     original_name = safe_get(chain, "name", "")
     resolved_name, is_custom = resolve_chain_name(original_name)
-    
+
+    # Get configuration values
+    chain_id = safe_get(chain, "chain_id", None)
+    use_existing = as_bool(safe_get(chain, "use_existing", False), False)
+    deploy_core = as_bool(safe_get(chain, "deploy_core", False), False)
+    existing_addresses = safe_get(chain, "existing_addresses", {})
+
+    # If use_existing is true, try to find official addresses
+    if use_existing and not existing_addresses:
+        # Try to find addresses by chain name first
+        official_addresses = get_mainnet_addresses(original_name.lower())
+        if not official_addresses:
+            official_addresses = get_testnet_addresses(original_name.lower())
+
+        # If not found by name, try by chain ID
+        if not official_addresses and chain_id:
+            official_addresses = get_addresses_by_chain_id(chain_id)
+
+        # If found, populate existing_addresses
+        if official_addresses:
+            existing_addresses = {
+                "mailbox": official_addresses.get("mailbox", ""),
+                "validatorAnnounce": official_addresses.get("validatorAnnounce", ""),
+                "interchainGasPaymaster": official_addresses.get("interchainGasPaymaster", ""),
+                "interchainSecurityModule": official_addresses.get("interchainSecurityModule", ""),
+                "interchainAccountRouter": official_addresses.get("interchainAccountRouter", ""),
+                "merkleTreeHook": official_addresses.get("merkleTreeHook", ""),
+                "proxyAdmin": official_addresses.get("proxyAdmin", ""),
+                "testRecipient": official_addresses.get("testRecipient", ""),
+                # ISM factories
+                "domainRoutingIsmFactory": official_addresses.get("domainRoutingIsmFactory", ""),
+                "staticAggregationHookFactory": official_addresses.get("staticAggregationHookFactory", ""),
+                "staticAggregationIsmFactory": official_addresses.get("staticAggregationIsmFactory", ""),
+                "staticMerkleRootMultisigIsmFactory": official_addresses.get("staticMerkleRootMultisigIsmFactory", ""),
+                "staticMessageIdMultisigIsmFactory": official_addresses.get("staticMessageIdMultisigIsmFactory", ""),
+            }
+            # If we found addresses, don't deploy core
+            deploy_core = False
+
     # Store both original and resolved names for reference
     return struct(
         name=original_name,  # Keep original name for display purposes
         normalized_name=resolved_name,  # Use normalized name for internal operations
         is_custom_name=is_custom,
         rpc_url=safe_get(chain, "rpc_url", ""),
-        chain_id=safe_get(chain, "chain_id", None),
-        deploy_core=as_bool(safe_get(chain, "deploy_core", False), False),
-        existing_addresses=safe_get(chain, "existing_addresses", {}),
+        chain_id=chain_id,
+        deploy_core=deploy_core,
+        use_existing=use_existing,
+        existing_addresses=existing_addresses,
     )
 
 

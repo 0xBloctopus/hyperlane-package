@@ -31,18 +31,21 @@ def deploy_core_contracts(plan, chains, deployer_key):
         Dictionary of contract addresses for each chain
     """
     contract_addresses = {}
-    
+
     # Process all chains
     for chain in chains:
         chain_name = getattr(chain, "name", "")
         deploy_core = getattr(chain, "deploy_core", False)
         existing_addresses = safe_get(chain, "existing_addresses", {})
-        
+
         if not as_bool(deploy_core, False) and existing_addresses:
             # Use pre-existing addresses from config
             contract_addresses[chain_name] = existing_addresses
 
-    # Get chains that need deployment  
+            # Register existing addresses in the local registry for agents to use
+            register_existing_addresses(plan, chain_name, existing_addresses)
+
+    # Get chains that need deployment
     chains_needing_core = get_chains_needing_core(chains)
     if len(chains_needing_core) == 0:
         return contract_addresses
@@ -208,6 +211,78 @@ def generate_core_config(chains):
 
 
 
+
+
+# ============================================================================
+# REGISTRY MANAGEMENT
+# ============================================================================
+
+
+def register_existing_addresses(plan, chain_name, addresses):
+    """
+    Register existing contract addresses in the local registry
+
+    Args:
+        plan: Kurtosis plan object
+        chain_name: Name of the chain
+        addresses: Dictionary of existing contract addresses
+    """
+    sanitized_name = sanitize_chain_name(chain_name)
+
+    # Create the registry directory for this chain
+    plan.exec(
+        service_name="hyperlane-cli",
+        recipe=ExecRecipe(
+            command=[
+                "sh", "-c",
+                "mkdir -p /configs/registry/chains/{}".format(sanitized_name),
+            ],
+        ),
+    )
+
+    # Write the addresses to the registry
+    addresses_yaml = """mailbox: '{}'
+validatorAnnounce: '{}'
+merkleTreeHook: '{}'
+proxyAdmin: '{}'
+interchainAccountRouter: '{}'
+testRecipient: '{}'
+domainRoutingIsmFactory: '{}'
+staticAggregationHookFactory: '{}'
+staticAggregationIsmFactory: '{}'
+staticMerkleRootMultisigIsmFactory: '{}'
+staticMerkleRootWeightedMultisigIsmFactory: '{}'
+staticMessageIdMultisigIsmFactory: '{}'
+staticMessageIdWeightedMultisigIsmFactory: '{}'
+""".format(
+        safe_get(addresses, "mailbox", ""),
+        safe_get(addresses, "validatorAnnounce", ""),
+        safe_get(addresses, "merkleTreeHook", ""),
+        safe_get(addresses, "proxyAdmin", ""),
+        safe_get(addresses, "interchainAccountRouter", ""),
+        safe_get(addresses, "testRecipient", ""),
+        safe_get(addresses, "domainRoutingIsmFactory", ""),
+        safe_get(addresses, "staticAggregationHookFactory", ""),
+        safe_get(addresses, "staticAggregationIsmFactory", ""),
+        safe_get(addresses, "staticMerkleRootMultisigIsmFactory", ""),
+        safe_get(addresses, "staticMerkleRootWeightedMultisigIsmFactory", ""),
+        safe_get(addresses, "staticMessageIdMultisigIsmFactory", ""),
+        safe_get(addresses, "staticMessageIdWeightedMultisigIsmFactory", ""),
+    )
+
+    plan.exec(
+        service_name="hyperlane-cli",
+        recipe=ExecRecipe(
+            command=[
+                "sh", "-c",
+                "cat > /configs/registry/chains/{}/addresses.yaml << 'EOF'\n{}\nEOF".format(
+                    sanitized_name, addresses_yaml
+                ),
+            ],
+        ),
+    )
+
+    log_info("Registered existing addresses for chain: {}".format(chain_name))
 
 
 # ============================================================================

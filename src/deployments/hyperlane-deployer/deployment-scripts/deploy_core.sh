@@ -133,6 +133,14 @@ deploy_core_to_chain() {
     # Registry should already be initialized, just get the path
     local reg_chain_dir="${REGISTRY_DIR}/chains/${chain_name}"
 
+    # Check if existing addresses are already registered
+    if [ -f "${reg_chain_dir}/addresses.yaml" ]; then
+        log_info "Found existing addresses for ${chain_name} in registry, skipping deployment"
+        create_stamp_file "$stamp_file"
+        display_deployed_addresses "$chain_name"
+        return 0
+    fi
+
     # Verify metadata exists
     if [ ! -f "${reg_chain_dir}/metadata.yaml" ]; then
         log_error "Chain metadata not found for ${chain_name}. Registry initialization may have failed."

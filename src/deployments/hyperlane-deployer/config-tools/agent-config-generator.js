@@ -128,6 +128,14 @@ function fetchYaml(url) {
 // ============================================================================
 
 /**
+ * Sanitize chain name to match the format used by deployment scripts
+ */
+function sanitizeChainName(name) {
+  // Remove hyphens and underscores, convert to lowercase
+  return name.toLowerCase().replace(/[-_]/g, '');
+}
+
+/**
  * Read core contract addresses from various possible locations
  */
 function readCoreAddresses(chainName) {
@@ -139,25 +147,28 @@ function readCoreAddresses(chainName) {
     merkleTreeHook: '',
   };
 
+  // Sanitize the chain name for consistency with deployment scripts
+  const sanitizedName = sanitizeChainName(chainName);
+
   // Try JSON format in configs directory
   const jsonPath = path.resolve(CONFIGS_DIR, `addresses-${chainName}.json`);
   const jsonData = readFile(jsonPath, 'json');
-  
+
   if (jsonData) {
     addresses.mailbox = jsonData.mailbox || jsonData.Mailbox || '';
     addresses.igp = jsonData.interchainGasPaymaster || jsonData.igp || '';
     addresses.validatorAnnounce = jsonData.validatorAnnounce || jsonData.ValidatorAnnounce || '';
     addresses.ism = jsonData.interchainSecurityModule || jsonData.defaultIsm || jsonData.ism || '';
     addresses.merkleTreeHook = jsonData.merkleTreeHook || jsonData.MerkleTreeHook || '';
-    
+
     if (addresses.mailbox) {
       logger.debug(`Found addresses for ${chainName} in JSON format`);
       return addresses;
     }
   }
 
-  // Try YAML format in registry directory
-  const yamlPath = path.resolve(REGISTRY_DIR, chainName, 'addresses.yaml');
+  // Try YAML format in registry directory with sanitized name
+  const yamlPath = path.resolve(REGISTRY_DIR, sanitizedName, 'addresses.yaml');
   const yamlData = readFile(yamlPath, 'yaml');
   
   if (yamlData) {
