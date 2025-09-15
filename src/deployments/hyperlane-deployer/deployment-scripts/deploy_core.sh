@@ -47,17 +47,30 @@ initialize_chain_registry() {
 
         # Create metadata file for this chain
         create_chain_metadata "$chain" "$rpc" "$chain_id" "$reg_chain_dir"
-        log_info "Registered chain metadata for ${chain} (ID: ${chain_id})"
+
+        # CRITICAL: Also copy metadata to where Hyperlane CLI expects it
+        # CLI v18+ looks for metadata in $HOME/.hyperlane/chains/<chain-name>/
+        local cli_chain_dir="$HOME/.hyperlane/chains/${chain}"
+        mkdir -p "$cli_chain_dir"
+        cp "${reg_chain_dir}/metadata.yaml" "${cli_chain_dir}/metadata.yaml"
+
+        log_info "Registered chain metadata for ${chain} (ID: ${chain_id}) in both registry and CLI locations"
     done
 
     # Create a chains.yaml file listing all chains
     create_chains_config_file
 
+    # Also copy chains.yaml to CLI expected location
+    mkdir -p "$HOME/.hyperlane"
+    cp "${REGISTRY_DIR}/chains.yaml" "$HOME/.hyperlane/chains.yaml"
+
     # Export registry path for Hyperlane CLI
     export HYP_REGISTRY="${REGISTRY_DIR}"
     export HYP_CHAINS_FILE="${REGISTRY_DIR}/chains.yaml"
+    # Also export the standard location as fallback
+    export HYPERLANE_REGISTRY_DIR="$HOME/.hyperlane"
 
-    log_info "Chain registry initialization complete"
+    log_info "Chain registry initialization complete (available in both registry and CLI standard locations)"
 }
 
 create_chains_config_file() {
