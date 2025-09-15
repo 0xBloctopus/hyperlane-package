@@ -7,7 +7,7 @@ This directory contains configuration templates for Hyperlane package deployment
 Use these configuration files with the Kurtosis run command:
 
 ```bash
-kurtosis run . --args-file config-templates/multisig-config.json
+kurtosis run . --args-file config-examples/multisig-config.json
 ```
 
 ## Available Templates

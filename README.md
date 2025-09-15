@@ -12,7 +12,7 @@ Key features
 
 Usage
 - kurtosis clean -a
-- kurtosis run --enclave hyperlane ./hyperlane-package --args-file ./hyperlane-package/config/config.yaml
+- kurtosis run --enclave hyperlane ./hyperlane-package --args-file ./hyperlane-package/config-examples/multisig-config.json
 - View logs:
   - kurtosis service logs hyperlane hyperlane-cli
   - kurtosis service logs hyperlane relayer
@@ -43,7 +43,7 @@ Agent keys in args.yaml
 - agents.relayer.key: used by relayer
 - agents.validators[].signing_key: per-chain validators
 
-- Default example: ./config/config.yaml
+- Default examples: ./config-examples/ (see README in that directory for all options)
 
 Providing RPCs and secrets
 - rpc_url values are consumed by the CLI service via CHAIN_RPCS. No chain containers are started; only your external RPCs are used.
