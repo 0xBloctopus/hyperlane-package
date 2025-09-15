@@ -165,6 +165,8 @@ def build_cli_environment(chain_info, global_settings, deployer_key):
         # Hyperlane CLI environment variables for custom chains
         "HYP_REGISTRY": constants.REGISTRY_DIR,
         "HYP_CHAINS_FILE": constants.REGISTRY_DIR + "/chains.yaml",
+        # Disable SSL verification for internal services with self-signed certificates
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0",
     }
 
     # Add ISM configuration if provided
