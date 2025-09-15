@@ -1,0 +1,78 @@
+{
+  "_comment": "Enhanced configuration with custom chain names and validation",
+  "chains": [
+    {
+      "name": "My-Custom-Ethereum-Testnet",
+      "rpc_url": "https://eth-sepolia.g.alchemy.com/v2/lC2HDPB2Vs7-p-UPkgKD-VqFulU5elyk",
+      "chain_id": 11155111,
+      "deploy_core": true
+    },
+    {
+      "name": "Custom_Base_Network", 
+      "rpc_url": "https://base-sepolia.gateway.tenderly.co",
+      "chain_id": 84532,
+      "deploy_core": true
+    },
+    {
+      "name": "dev-arbitrum-fork",
+      "rpc_url": "https://arbitrum-sepolia.blockpi.network/v1/rpc/public",
+      "chain_id": 421614,
+      "deploy_core": true
+    }
+  ],
+  "agents": {
+    "deployer": {
+      "key": "0x1cdf65ac75f477650040ebe272ddaffb6735dcf55bd651869963ada71944e6db"
+    },
+    "relayer": {
+      "key": "0x1cdf65ac75f477650040ebe272ddaffb6735dcf55bd651869963ada71944e6db"
+    },
+    "validators": [
+      {
+        "chain": "My-Custom-Ethereum-Testnet",
+        "signing_key": "0x1cdf65ac75f477650040ebe272ddaffb6735dcf55bd651869963ada71944e6db",
+        "checkpoint_syncer": {
+          "type": "local",
+          "params": {
+            "path": "/data/validator-checkpoints"
+          }
+        }
+      },
+      {
+        "chain": "Custom_Base_Network",
+        "signing_key": "0x1cdf65ac75f477650040ebe272ddaffb6735dcf55bd651869963ada71944e6db",
+        "checkpoint_syncer": {
+          "type": "local",
+          "params": {
+            "path": "/data/validator-checkpoints"
+          }
+        }
+      },
+      {
+        "chain": "dev-arbitrum-fork",
+        "signing_key": "0x1cdf65ac75f477650040ebe272ddaffb6735dcf55bd651869963ada71944e6db",
+        "checkpoint_syncer": {
+          "type": "local",
+          "params": {
+            "path": "/data/validator-checkpoints"
+          }
+        }
+      }
+    ]
+  },
+  "global": {
+    "ism": {
+      "type": "messageIdMultisigIsm",
+      "validators": ["0xe1A74e1FCB254CB1e5eb1245eaAe034A4D7dD538"],
+      "threshold": 1
+    },
+    "cli_version": "latest",
+    "agent_image_tag": "agents-v1.4.0"
+  },
+  "send_test": {
+    "enabled": true,
+    "origin": "My-Custom-Ethereum-Testnet",
+    "destination": "Custom_Base_Network",
+    "amount": "100"
+  }
+}
