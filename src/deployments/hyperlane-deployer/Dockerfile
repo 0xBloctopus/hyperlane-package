@@ -35,7 +35,7 @@ COPY scripts/balances.js /usr/local/bin/balances.js
 COPY scripts/parse_txhash.js /usr/local/bin/parse_txhash.js
 
 # Copy common utilities
-COPY common.sh /usr/local/bin/common.sh
+COPY ../../modules/utils/shell/common.sh /usr/local/bin/common.sh
 COPY template_processor.sh /usr/local/bin/template_processor.sh
 
 # Copy agent config generator
