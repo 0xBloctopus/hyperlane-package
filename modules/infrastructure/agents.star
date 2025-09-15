@@ -71,26 +71,36 @@ def build_agent_config_service(plan, chains, configs_dir, validators = None, glo
     # Generate YAML content for agent config including validators and ISM
     yaml_content = generate_chains_yaml(chains, validators, global_settings)
 
-    # Create template files
+    # Create template files with YAML input for the config generator
     files_artifact = create_config_templates(plan, yaml_content)
 
-    # Use pre-built agent config image
-    agent_cfg_image = "fravlaca/agent-config-gen:latest"
-
-    # Add the service to the plan
-    plan.add_service(
-        name="agent-config-gen",
-        config=ServiceConfig(
-            image=agent_cfg_image,
-            env_vars={
-                "ENABLE_PUBLIC_FALLBACK": "false",
-                "DEBUG": "1",  # Enable debug logging
-            },
-            files={
-                "/seed": files_artifact,
-                constants.CONFIGS_DIR: configs_dir,
-            },
-            cmd=["/seed/args.yaml", "/configs/agent-config.json"],
+    # Generate dynamic YAML content from actual configuration
+    yaml_content = generate_chains_yaml(chains, validators, global_settings)
+    
+    # Execute the Node.js config generator with dynamic configuration
+    plan.exec(
+        service_name="hyperlane-cli",
+        recipe=ExecRecipe(
+            command=[
+                "sh",
+                "-c",
+                """
+                echo "Generating agent configuration using Node.js config generator..."
+                
+                # Create the input YAML file with dynamic configuration
+                cat > /work/input-config.yaml << 'EOF'
+%s
+EOF
+                
+                # Execute the Node.js agent config generator
+                echo "Running Node.js config generator..."
+                cd /work && node agent-config-generator.js /work/input-config.yaml /configs/agent-config.json
+                
+                echo "Agent configuration generated successfully"
+                echo "Generated config:"
+                cat /configs/agent-config.json | head -20
+                """ % yaml_content,
+            ],
         ),
     )
 
@@ -148,6 +158,8 @@ def generate_chains_yaml(chains, validators = None, global_settings = None):
                 yaml_content += "      {}: {}\n".format(key, value)
         else:
             yaml_content += "    existing_addresses: {}\n"
+        
+        # Chain configuration complete - reorgPeriod optimization handled in agent config generator
 
     # Add validators section if provided
     if validators and len(validators) > 0:

@@ -8,10 +8,9 @@
 
 ## Docker Images
 
-This package uses two main Docker images:
+This package uses a consolidated Docker image:
 
-1. **hyperlane-cli** - Contains Hyperlane CLI and deployment scripts
-2. **agent-config-gen** - Generates agent configuration from deployed contracts
+1. **hyperlane-cli** - Contains Hyperlane CLI, deployment scripts, and agent configuration generation
 
 ## Versioning Strategy
 
@@ -41,12 +40,7 @@ docker build \
   -f src/deployments/hyperlane-deployer/Dockerfile \
   src/deployments/hyperlane-deployer/
 
-# Build agent-config-gen
-docker build \
-  -t agent-config-gen:v1.0.0 \
-  -t agent-config-gen:latest \
-  -f src/deployments/config-generator/Dockerfile \
-  src/deployments/config-generator/
+# Agent config generation is now integrated into hyperlane-cli image
 ```
 
 ## Version Configuration
@@ -71,13 +65,7 @@ global:
   - Deployment scripts
   - Common utilities
 
-### agent-config-gen:v1.0.0
-
-- Base: node:20-bullseye
-- Includes:
-  - Node.js config generator
-  - YAML parser
-  - Registry integration
+The hyperlane-cli image includes integrated agent configuration generation capabilities that were previously in a separate image.
 
 ## Troubleshooting
 

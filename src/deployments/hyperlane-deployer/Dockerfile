@@ -18,12 +18,11 @@ RUN apt-get update && apt-get install -y curl git wget && \
 ARG CLI_VERSION=16.2.0
 RUN npm i -g @hyperlane-xyz/cli@${CLI_VERSION}
 
-# Setup Node modules for scripts
-RUN mkdir -p /opt/hyperlane && cd /opt/hyperlane && npm init -y && npm i ethers yaml
-ENV NODE_PATH=/opt/hyperlane/node_modules
-
-# Set working directory
+# Set working directory first
 WORKDIR /work
+
+# Setup Node modules in the work directory for proper module resolution
+RUN npm init -y && npm i ethers yaml
 
 # Copy deployment scripts (these need to be copied into build context)
 COPY deploy_core.sh /usr/local/bin/deploy_core.sh
@@ -38,6 +37,9 @@ COPY scripts/parse_txhash.js /usr/local/bin/parse_txhash.js
 # Copy common utilities
 COPY common.sh /usr/local/bin/common.sh
 COPY template_processor.sh /usr/local/bin/template_processor.sh
+
+# Copy agent config generator
+COPY agent-config-generator.js /work/agent-config-generator.js
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/*.sh

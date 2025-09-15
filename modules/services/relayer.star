@@ -138,7 +138,7 @@ def build_full_relayer_command(chains, relay_chains, relayer_key, allow_local_sy
     cmd += " --defaultSigner.key {}".format(relayer_key)
     cmd += " --db {}".format(constants.RELAYER_DB_DIR)
     cmd += " --config /configs/agent-config.json"
-
+    
     # The ISM configuration will be read from the deployed contracts
     # No need to override ISM type - it will use what was deployed
 

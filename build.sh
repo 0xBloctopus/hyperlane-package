@@ -22,19 +22,14 @@ docker build \
   -f src/deployments/hyperlane-deployer/Dockerfile \
   src/deployments/hyperlane-deployer/
 
-# Build agent-config-gen image  
-echo "Building agent-config-gen:${IMAGE_TAG}..."
-docker build \
-  -t ${USER_NAME}/agent-config-gen:${IMAGE_TAG} \
-  -t ${USER_NAME}/agent-config-gen:latest \
-  -f src/deployments/config-generator/Dockerfile \
-  src/deployments/config-generator/
+# Agent config generation is now integrated into hyperlane-cli image
+# No separate agent-config-gen image needed
 
-echo "Docker images built successfully!"
+echo "Docker image built successfully!"
 echo ""
-echo "Images created:"
+echo "Image created:"
 echo "  - ${USER_NAME}/hyperlane-cli:${IMAGE_TAG} (also tagged as latest)"
-echo "  - ${USER_NAME}/agent-config-gen:${IMAGE_TAG} (also tagged as latest)"
+echo "    Includes agent config generation capabilities"
 echo ""
 echo "To use specific versions in deployment, update your config to use:"
 echo "  cli_version: ${IMAGE_TAG}"

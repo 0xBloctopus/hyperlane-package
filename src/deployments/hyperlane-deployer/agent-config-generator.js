@@ -210,6 +210,39 @@ async function fetchPublicAddresses(chainName) {
 }
 
 // ============================================================================
+// BLOCK HEIGHT OPTIMIZATION
+// ============================================================================
+
+/**
+ * Fetch current block height from RPC endpoint
+ */
+async function fetchBlockHeight(rpc) {
+  try {
+    const response = await fetch(rpc, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_blockNumber',
+        params: [],
+        id: 1
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.result) {
+      return parseInt(data.result, 16);
+    }
+    throw new Error('No result in RPC response');
+  } catch (error) {
+    throw new Error(`RPC call failed: ${error.message}`);
+  }
+}
+
+// ============================================================================
 // CONFIGURATION BUILDER
 // ============================================================================
 
@@ -262,6 +295,20 @@ async function buildChainConfig(chain) {
   }
   if (!config.igp) {
     logger.error(`Missing IGP address for ${chain.name}`);
+  }
+
+  // Add block height optimization for sync starting point
+  try {
+    logger.debug(`Fetching current block height for ${chain.name}`);
+    const currentBlock = await fetchBlockHeight(chain.rpc_url);
+    const safeStartBlock = Math.max(0, currentBlock - 100); // Start 100 blocks back for safety
+    
+    logger.info(`Current block for ${chain.name}: ${currentBlock}, Starting from: ${safeStartBlock}`);
+    config.index = { from: safeStartBlock };
+  } catch (error) {
+    logger.error(`Error fetching block height for ${chain.name}: ${error.message}`);
+    logger.error(`Using fallback starting block of 0 for ${chain.name}`);
+    config.index = { from: 0 };
   }
 
   return config;

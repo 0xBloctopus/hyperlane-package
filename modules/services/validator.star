@@ -135,17 +135,21 @@ def build_checkpoint_syncer_env(checkpoint_syncer):
         prefix = safe_get(params, "prefix", "")
         if prefix:
             env["S3_PREFIX"] = str(prefix)
-        if "basePath" in params:
-            env["CHECKPOINT_BASE_PATH"] = str(params["basePath"])
+        basePath = safe_get(params, "basePath", "")
+        if basePath:
+            env["CHECKPOINT_BASE_PATH"] = str(basePath)
 
     elif syncer_type == constants.CHECKPOINT_SYNCER_GCS:
         env["CHECKPOINT_SYNCER_TYPE"] = "gcs"
-        if "bucket" in params:
-            env["S3_BUCKET"] = str(params["bucket"])  # GCS uses same env var
-        if "prefix" in params:
-            env["S3_PREFIX"] = str(params["prefix"])
-        if "basePath" in params:
-            env["CHECKPOINT_BASE_PATH"] = str(params["basePath"])
+        bucket_gcs = safe_get(params, "bucket", "")
+        if bucket_gcs:
+            env["S3_BUCKET"] = str(bucket_gcs)  # GCS uses same env var
+        prefix_gcs = safe_get(params, "prefix", "")
+        if prefix_gcs:
+            env["S3_PREFIX"] = str(prefix_gcs)
+        basePath_gcs = safe_get(params, "basePath", "")
+        if basePath_gcs:
+            env["CHECKPOINT_BASE_PATH"] = str(basePath_gcs)
 
     else:
         # Default to local

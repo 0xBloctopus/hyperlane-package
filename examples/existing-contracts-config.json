@@ -59,7 +59,7 @@
   },
   "global": {
     "ism": {
-      "type": "multisig",
+      "type": "messageIdMultisigIsm",
       "validators": ["0xe1A74e1FCB254CB1e5eb1245eaAe034A4D7dD538"],
       "threshold": 1
     },
