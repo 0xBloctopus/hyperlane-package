@@ -8,6 +8,9 @@ helpers_module = import_module("../utils/helpers.star")
 log_info = helpers_module.log_info
 create_persistent_directory = helpers_module.create_persistent_directory
 
+cli_module = import_module("./cli.star")
+sanitize_chain_name = cli_module.sanitize_chain_name
+
 constants = get_constants()
 
 # ============================================================================

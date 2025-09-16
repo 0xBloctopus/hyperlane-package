@@ -8,19 +8,10 @@ safe_get = helpers_module.safe_get
 log_info = helpers_module.log_info
 find_item = helpers_module.find_item
 
-constants = get_constants()
+cli_module = import_module("../infrastructure/cli.star")
+sanitize_chain_name = cli_module.sanitize_chain_name
 
-# Sanitize chain name to match format used by deployment scripts
-def sanitize_chain_name(name):
-    """Remove hyphens and underscores, convert to lowercase"""
-    if not name:
-        return ""
-    sanitized = ""
-    for i in range(len(name.lower())):
-        char = name.lower()[i]
-        if (char >= 'a' and char <= 'z') or (char >= '0' and char <= '9'):
-            sanitized += char
-    return sanitized
+constants = get_constants()
 
 # ============================================================================
 # VALIDATOR SERVICE BUILDER
