@@ -30,6 +30,7 @@ def build_validator_service(
         chains: List of chain configurations
         agent_image: Docker image for the agent
         configs_dir: Configs directory artifact
+        checkpoints_dir: Checkpoints directory artifact
     """
     chain_name = getattr(validator, "chain", "")
 
