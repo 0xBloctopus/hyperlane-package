@@ -5,10 +5,10 @@
  * based on deployed contract addresses and chain configurations
  */
 
-import fs from 'fs';
-import path from 'path';
-import https from 'https';
-import YAML from 'yaml';
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
+const YAML = require('yaml');
 
 // ============================================================================
 // CONSTANTS
@@ -267,8 +267,8 @@ async function buildChainConfig(chain) {
   const config = {
     // Add required chain metadata fields
     name: sanitizedName,
-    chainId: chain.chain_id || chain.chainId,
-    domainId: chain.chain_id || chain.chainId,
+    chainId: chain.chain_id || chain.chainId || chain.chainID,  // Support chainID from frontend
+    domainId: chain.chain_id || chain.chainId || chain.chainID,  // Support chainID from frontend
     protocol: 'ethereum',
 
     // Format RPC URLs properly for Hyperlane
@@ -285,13 +285,13 @@ async function buildChainConfig(chain) {
     merkleTreeHook: '',
   };
 
-  // Start with existing addresses from input
+  // Start with existing addresses from input - ensure they remain as strings
   const existing = chain.existing_addresses || {};
-  config.mailbox = existing.mailbox || '';
-  config.interchainGasPaymaster = existing.igp || existing.interchainGasPaymaster || '';
-  config.validatorAnnounce = existing.validatorAnnounce || '';
-  config.ism = existing.ism || '';
-  config.merkleTreeHook = existing.merkleTreeHook || '';
+  config.mailbox = String(existing.mailbox || '');
+  config.interchainGasPaymaster = String(existing.igp || existing.interchainGasPaymaster || '');
+  config.validatorAnnounce = String(existing.validatorAnnounce || '');
+  config.ism = String(existing.ism || '');
+  config.merkleTreeHook = String(existing.merkleTreeHook || '');
 
   // Override with deployed addresses if available
   const deployed = readCoreAddresses(chain.name);
