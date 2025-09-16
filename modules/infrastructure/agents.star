@@ -30,11 +30,16 @@ def build_agent_config_service(plan, chains, configs_dir, validators = None, glo
 
     # First ensure addresses are available for chains that need them
     chains_needing_addresses = []
+    sanitized_chain_names = []
     for chain in chains:
         if getattr(chain, "deploy_core", False):
-            chains_needing_addresses.append(getattr(chain, "name", ""))
+            chain_name = getattr(chain, "name", "")
+            chains_needing_addresses.append(chain_name)
+            # Sanitize the chain name to match what deployment creates
+            sanitized_name = sanitize_chain_name(chain_name)
+            sanitized_chain_names.append(sanitized_name)
 
-    if len(chains_needing_addresses) > 0:
+    if len(sanitized_chain_names) > 0:
         # Wait for addresses to be available
         plan.exec(
             service_name="hyperlane-cli",
@@ -46,7 +51,7 @@ def build_agent_config_service(plan, chains, configs_dir, validators = None, glo
                     echo "Checking for deployed addresses before generating agent config..."
                     chains_to_check='%s'
                     all_found=true
-                    
+
                     for chain in $chains_to_check; do
                         addr_file="/configs/registry/chains/$chain/addresses.yaml"
                         if [ ! -f "$addr_file" ]; then
@@ -58,12 +63,12 @@ def build_agent_config_service(plan, chains, configs_dir, validators = None, glo
                             grep "^mailbox:" "$addr_file" || true
                         fi
                     done
-                    
+
                     if [ "$all_found" = "false" ]; then
                         echo "WARNING: Some addresses are missing, config may use defaults"
                     fi
                 """
-                    % " ".join(chains_needing_addresses),
+                    % " ".join(sanitized_chain_names),
                 ],
             ),
         )

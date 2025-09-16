@@ -8,6 +8,18 @@ log_info = helpers_module.log_info
 
 constants = get_constants()
 
+# Sanitize chain name to match format used by deployment scripts
+def sanitize_chain_name(name):
+    """Remove hyphens and underscores, convert to lowercase"""
+    if not name:
+        return ""
+    sanitized = ""
+    for i in range(len(name.lower())):
+        char = name.lower()[i]
+        if (char >= 'a' and char <= 'z') or (char >= '0' and char <= '9'):
+            sanitized += char
+    return sanitized
+
 # ============================================================================
 # RELAYER SERVICE BUILDER
 # ============================================================================
@@ -133,8 +145,14 @@ def build_full_relayer_command(chains, relay_chains, relayer_key, allow_local_sy
         Complete relayer command
     """
     # Use the agent config file directly
+    # Sanitize chain names to match agent config keys
+    sanitized_chains = []
+    for chain_name in relay_chains.split(','):
+        sanitized_chains.append(sanitize_chain_name(chain_name.strip()))
+    sanitized_chain_list = ','.join(sanitized_chains)
+
     cmd = "/app/relayer"
-    cmd += " --relayChains {}".format(relay_chains)
+    cmd += " --relayChains {}".format(sanitized_chain_list)
     cmd += " --defaultSigner.key {}".format(relayer_key)
     cmd += " --db {}".format(constants.RELAYER_DB_DIR)
     cmd += " --config /configs/agent-config.json"

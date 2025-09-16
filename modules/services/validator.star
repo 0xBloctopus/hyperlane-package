@@ -10,6 +10,18 @@ find_item = helpers_module.find_item
 
 constants = get_constants()
 
+# Sanitize chain name to match format used by deployment scripts
+def sanitize_chain_name(name):
+    """Remove hyphens and underscores, convert to lowercase"""
+    if not name:
+        return ""
+    sanitized = ""
+    for i in range(len(name.lower())):
+        char = name.lower()[i]
+        if (char >= 'a' and char <= 'z') or (char >= '0' and char <= '9'):
+            sanitized += char
+    return sanitized
+
 # ============================================================================
 # VALIDATOR SERVICE BUILDER
 # ============================================================================
@@ -42,11 +54,13 @@ def build_validator_service(
     env_vars = build_validator_env(validator, chain)
 
     # Build simple direct command arguments
-    # No shell interpretation, no string concatenation  
+    # No shell interpretation, no string concatenation
     # Use /tmp for checkpoints to avoid permission issues with mounted volumes
+    # Use sanitized chain name to match agent config
+    sanitized_name = sanitize_chain_name(chain_name)
     validator_args = [
         "--config", "/configs/agent-config.json",
-        "--originChainName", chain_name,
+        "--originChainName", sanitized_name,
         "--validator.key", validator_key,
         "--checkpointSyncer.type", "localStorage",
         "--checkpointSyncer.path", "/tmp/validator-checkpoints"

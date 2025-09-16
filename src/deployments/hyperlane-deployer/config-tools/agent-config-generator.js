@@ -364,12 +364,14 @@ async function buildAgentConfig(args) {
   for (const chain of chains) {
     logger.debug(`Processing chain: ${chain.name}`);
     const chainConfig = await buildChainConfig(chain);
-    config.chains[chain.name] = chainConfig;
-    
+    // Use sanitized name as the key in the config
+    const sanitizedName = sanitizeChainName(chain.name);
+    config.chains[sanitizedName] = chainConfig;
+
     // Add ISM to defaultism configuration for relayer
     if (chainConfig.ism) {
-      config.defaultism[chain.name] = chainConfig.ism;
-      logger.debug(`Added ISM for ${chain.name} to defaultism config: ${chainConfig.ism}`);
+      config.defaultism[sanitizedName] = chainConfig.ism;
+      logger.debug(`Added ISM for ${sanitizedName} to defaultism config: ${chainConfig.ism}`);
     }
   }
 
@@ -399,9 +401,9 @@ async function buildAgentConfig(args) {
       };
     }
 
-    // Set origin chain name if specified
+    // Set origin chain name if specified (sanitized)
     if (validator.chain) {
-      config.originChainName = validator.chain;
+      config.originChainName = sanitizeChainName(validator.chain);
     }
   } else {
     // Provide minimal validator config to prevent errors
