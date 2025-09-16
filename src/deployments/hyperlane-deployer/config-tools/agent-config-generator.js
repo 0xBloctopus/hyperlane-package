@@ -261,10 +261,25 @@ async function fetchBlockHeight(rpc) {
  * Build configuration for a single chain
  */
 async function buildChainConfig(chain) {
+  // Sanitize the chain name for consistency
+  const sanitizedName = sanitizeChainName(chain.name);
+
   const config = {
+    // Add required chain metadata fields
+    name: sanitizedName,
+    chainId: chain.chain_id || chain.chainId,
+    domainId: chain.chain_id || chain.chainId,
+    protocol: 'ethereum',
+
+    // Format RPC URLs properly for Hyperlane
+    rpcUrls: [{ http: chain.rpc_url }],
+
+    // Connection info (legacy format, kept for compatibility)
     connection: { url: chain.rpc_url },
+
+    // Contract addresses
     mailbox: '',
-    igp: '',
+    interchainGasPaymaster: '',  // Changed from 'igp' to match Hyperlane's expected field name
     validatorAnnounce: '',
     ism: '',
     merkleTreeHook: '',
@@ -273,7 +288,7 @@ async function buildChainConfig(chain) {
   // Start with existing addresses from input
   const existing = chain.existing_addresses || {};
   config.mailbox = existing.mailbox || '';
-  config.igp = existing.igp || '';
+  config.interchainGasPaymaster = existing.igp || existing.interchainGasPaymaster || '';
   config.validatorAnnounce = existing.validatorAnnounce || '';
   config.ism = existing.ism || '';
   config.merkleTreeHook = existing.merkleTreeHook || '';
@@ -281,19 +296,19 @@ async function buildChainConfig(chain) {
   // Override with deployed addresses if available
   const deployed = readCoreAddresses(chain.name);
   config.mailbox = deployed.mailbox || config.mailbox;
-  config.igp = deployed.igp || config.igp;
+  config.interchainGasPaymaster = deployed.igp || config.interchainGasPaymaster;
   config.validatorAnnounce = deployed.validatorAnnounce || config.validatorAnnounce;
   config.ism = deployed.ism || config.ism;
   config.merkleTreeHook = deployed.merkleTreeHook || config.merkleTreeHook;
 
   // Check if we need to fetch from public registry
-  const needsPublic = !config.mailbox || !config.igp || !config.validatorAnnounce || !config.ism;
+  const needsPublic = !config.mailbox || !config.interchainGasPaymaster || !config.validatorAnnounce || !config.ism;
   
   if (needsPublic) {
     const publicAddresses = await fetchPublicAddresses(chain.name);
     if (publicAddresses) {
       config.mailbox = config.mailbox || publicAddresses.mailbox;
-      config.igp = config.igp || publicAddresses.igp;
+      config.interchainGasPaymaster = config.interchainGasPaymaster || publicAddresses.igp;
       config.validatorAnnounce = config.validatorAnnounce || publicAddresses.validatorAnnounce;
       config.ism = config.ism || publicAddresses.ism;
       config.merkleTreeHook = config.merkleTreeHook || publicAddresses.merkleTreeHook;
@@ -304,8 +319,8 @@ async function buildChainConfig(chain) {
   if (!config.mailbox) {
     logger.error(`Missing mailbox address for ${chain.name}`);
   }
-  if (!config.igp) {
-    logger.error(`Missing IGP address for ${chain.name}`);
+  if (!config.interchainGasPaymaster) {
+    logger.error(`Missing interchainGasPaymaster address for ${chain.name}`);
   }
 
   // Add block height optimization for sync starting point
@@ -350,12 +365,14 @@ async function buildAgentConfig(args) {
     // Add to defaultism for backwards compatibility
     if (args.default_ism.type && args.default_ism.validators && args.default_ism.threshold) {
       for (const chain of chains) {
-        config.defaultism[chain.name] = {
+        // Use sanitized chain name for consistency
+        const sanitizedName = sanitizeChainName(chain.name);
+        config.defaultism[sanitizedName] = {
           type: args.default_ism.type,
           validators: args.default_ism.validators,
           threshold: args.default_ism.threshold
         };
-        logger.debug(`Set default ISM for ${chain.name}: ${JSON.stringify(config.defaultism[chain.name])}`);
+        logger.debug(`Set default ISM for ${sanitizedName}: ${JSON.stringify(config.defaultism[sanitizedName])}`);
       }
     }
   }
