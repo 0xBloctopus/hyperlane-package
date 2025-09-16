@@ -194,8 +194,11 @@ def run(plan, args):
     validator_addresses = []
     if agent_config.validators:
         for v in agent_config.validators:
-            # Extract address from key if present
-            validator_addresses.append(getattr(v, "address", getattr(v, "key", "N/A")))
+            # Extract signing_key from validator config (it's a struct, access directly)
+            if v.signing_key:
+                validator_addresses.append(v.signing_key)
+            else:
+                validator_addresses.append("N/A")
     
     deployment_info = struct(
         deployer_address=agent_config.deployer_key if agent_config.deployer_key else "N/A",
