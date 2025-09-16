@@ -41,14 +41,16 @@ def build_validator_service(
     # Get validator key directly
     validator_key = getattr(validator, "signing_key", "")
 
-    # Build environment variables
-    env_vars = build_validator_env(validator, chain)
+    # Sanitize chain name for consistency
+    sanitized_name = sanitize_chain_name(chain_name)
+
+    # Build environment variables with sanitized chain name
+    env_vars = build_validator_env(validator, chain, sanitized_name)
 
     # Build simple direct command arguments
     # No shell interpretation, no string concatenation
     # Use /tmp for checkpoints to avoid permission issues with mounted volumes
-    # Use sanitized chain name to match agent config
-    sanitized_name = sanitize_chain_name(chain_name)
+    # validator_args uses the sanitized_name already defined above
     validator_args = [
         "--config", "/configs/agent-config.json",
         "--originChainName", sanitized_name,
@@ -58,8 +60,9 @@ def build_validator_service(
     ]
 
     # Add the service to the plan with direct entrypoint
+    # Use sanitized name for the service name to avoid Kubernetes naming issues
     plan.add_service(
-        name="validator-{}".format(chain_name),
+        name="validator-{}".format(sanitized_name),
         config=ServiceConfig(
             image=agent_image,
             env_vars=env_vars,
@@ -78,20 +81,21 @@ def build_validator_service(
 # ============================================================================
 
 
-def build_validator_env(validator, chain):
+def build_validator_env(validator, chain, sanitized_name):
     """
     Build environment variables for validator service
 
     Args:
         validator: Validator configuration
         chain: Chain configuration
+        sanitized_name: Sanitized chain name without special characters
 
     Returns:
         Dictionary of environment variables
     """
     base_env = {
         "VALIDATOR_KEY": getattr(validator, "signing_key", ""),
-        "ORIGIN_CHAIN": getattr(chain, "name", ""),
+        "ORIGIN_CHAIN": sanitized_name,  # Use sanitized name instead of chain.name
         "RPC_URL": getattr(chain, "rpc_url", ""),
         "CONFIG_FILES": "/configs/agent-config.json",
         "RUST_LOG": "info",
