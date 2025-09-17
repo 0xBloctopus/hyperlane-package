@@ -144,6 +144,7 @@ function readCoreAddresses(chainName) {
     validatorAnnounce: '',
     ism: '',
     merkleTreeHook: '',
+    interchainGasPaymaster: '', // Required field - use empty string if not deployed
   };
 
   // Sanitize the chain name for consistency with deployment scripts
@@ -158,6 +159,7 @@ function readCoreAddresses(chainName) {
     addresses.validatorAnnounce = jsonData.validatorAnnounce || jsonData.ValidatorAnnounce || '';
     addresses.ism = jsonData.interchainSecurityModule || jsonData.defaultIsm || jsonData.ism || '';
     addresses.merkleTreeHook = jsonData.merkleTreeHook || jsonData.MerkleTreeHook || '';
+    addresses.interchainGasPaymaster = jsonData.interchainGasPaymaster || jsonData.InterchainGasPaymaster || '';
 
     if (addresses.mailbox) {
       logger.debug(`Found addresses for ${chainName} in JSON format`);
@@ -175,6 +177,7 @@ function readCoreAddresses(chainName) {
     // Check for ISM in multiple possible fields
     addresses.ism = yamlData.defaultIsm || yamlData.interchainSecurityModule || yamlData.ism || '';
     addresses.merkleTreeHook = yamlData.merkleTreeHook || '';
+    addresses.interchainGasPaymaster = yamlData.interchainGasPaymaster || '';
     
     if (addresses.mailbox) {
       logger.debug(`Found addresses for ${chainName} in YAML format`);
@@ -210,6 +213,7 @@ async function fetchPublicAddresses(chainName) {
       validatorAnnounce: doc.validatorAnnounce || '',
       ism: doc.interchainSecurityModule || '',
       merkleTreeHook: doc.merkleTreeHook || '',
+      interchainGasPaymaster: doc.interchainGasPaymaster || '',
     };
   }
   
@@ -277,7 +281,8 @@ async function buildChainConfig(chain) {
     mailbox: '',
     validatorAnnounce: '',
     ism: '',
-    merkleTreeHook: ''
+    merkleTreeHook: '',
+    interchainGasPaymaster: '' // Required field - use empty string if not deployed
   };
 
   // Start with existing addresses from input - ensure they remain as strings
@@ -286,6 +291,7 @@ async function buildChainConfig(chain) {
   config.validatorAnnounce = String(existing.validatorAnnounce || '');
   config.ism = String(existing.ism || '');
   config.merkleTreeHook = String(existing.merkleTreeHook || '');
+  config.interchainGasPaymaster = String(existing.interchainGasPaymaster || '');
 
   // Override with deployed addresses if available
   const deployed = readCoreAddresses(chain.name);
@@ -293,6 +299,7 @@ async function buildChainConfig(chain) {
   config.validatorAnnounce = deployed.validatorAnnounce || config.validatorAnnounce;
   config.ism = deployed.ism || config.ism;
   config.merkleTreeHook = deployed.merkleTreeHook || config.merkleTreeHook;
+  config.interchainGasPaymaster = deployed.interchainGasPaymaster || config.interchainGasPaymaster;
 
   // Check if we need to fetch from public registry
   const needsPublic = !config.mailbox || !config.validatorAnnounce || !config.ism;
@@ -304,6 +311,7 @@ async function buildChainConfig(chain) {
       config.validatorAnnounce = config.validatorAnnounce || publicAddresses.validatorAnnounce;
       config.ism = config.ism || publicAddresses.ism;
       config.merkleTreeHook = config.merkleTreeHook || publicAddresses.merkleTreeHook;
+      config.interchainGasPaymaster = config.interchainGasPaymaster || publicAddresses.interchainGasPaymaster;
     }
   }
 
