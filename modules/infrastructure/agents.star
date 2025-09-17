@@ -158,6 +158,11 @@ def generate_chains_yaml(chains, validators = None, global_settings = None):
         yaml_content += "  - name: {}\n".format(getattr(chain, "name", ""))
         yaml_content += "    rpc_url: {}\n".format(getattr(chain, "rpc_url", ""))
 
+        # Add chain_id if available
+        chain_id = getattr(chain, "chain_id", None)
+        if chain_id != None:
+            yaml_content += "    chain_id: {}\n".format(chain_id)
+
         # Add existing addresses if available
         existing = getattr(chain, "existing_addresses", {})
         if existing:
