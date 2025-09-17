@@ -71,6 +71,8 @@ def deploy_core_contracts(plan, chains, deployer_key):
                     "validatorAnnounce": "fromjson | .validatorAnnounce",
                     "merkleTreeHook": "fromjson | .merkleTreeHook",
                     "proxyAdmin": "fromjson | .proxyAdmin",
+                    "interchainGasPaymaster": "fromjson | .interchainGasPaymaster",
+                    "storageGasOracle": "fromjson | .storageGasOracle",
                     "interchainAccountRouter": "fromjson | .interchainAccountRouter",
                     "testRecipient": "fromjson | .testRecipient",
                     "domainRoutingIsmFactory": "fromjson | .domainRoutingIsmFactory",
@@ -90,6 +92,8 @@ def deploy_core_contracts(plan, chains, deployer_key):
             "validatorAnnounce": result["extract.validatorAnnounce"],
             "merkleTreeHook": result["extract.merkleTreeHook"],
             "proxyAdmin": result["extract.proxyAdmin"],
+            "interchainGasPaymaster": result["extract.interchainGasPaymaster"],
+            "storageGasOracle": result["extract.storageGasOracle"],
             "interchainAccountRouter": result["extract.interchainAccountRouter"],
             "testRecipient": result["extract.testRecipient"],
             "domainRoutingIsmFactory": result["extract.domainRoutingIsmFactory"],
@@ -245,6 +249,8 @@ def register_existing_addresses(plan, chain_name, addresses):
 validatorAnnounce: '{}'
 merkleTreeHook: '{}'
 proxyAdmin: '{}'
+interchainGasPaymaster: '{}'
+storageGasOracle: '{}'
 interchainAccountRouter: '{}'
 testRecipient: '{}'
 domainRoutingIsmFactory: '{}'
@@ -259,6 +265,8 @@ staticMessageIdWeightedMultisigIsmFactory: '{}'
         safe_get(addresses, "validatorAnnounce", ""),
         safe_get(addresses, "merkleTreeHook", ""),
         safe_get(addresses, "proxyAdmin", ""),
+        safe_get(addresses, "interchainGasPaymaster", ""),
+        safe_get(addresses, "storageGasOracle", ""),
         safe_get(addresses, "interchainAccountRouter", ""),
         safe_get(addresses, "testRecipient", ""),
         safe_get(addresses, "domainRoutingIsmFactory", ""),
