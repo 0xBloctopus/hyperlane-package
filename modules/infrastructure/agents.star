@@ -181,22 +181,43 @@ def generate_chains_yaml(chains, validators = None, global_settings = None):
             yaml_content += "  - chain: {}\n".format(getattr(validator, "chain", ""))
             yaml_content += "    signing_key: {}\n".format(getattr(validator, "signing_key", ""))
             
-            # Add checkpoint syncer configuration
+            # Determine checkpoint syncer from validator or global defaults
             syncer = getattr(validator, "checkpoint_syncer", None)
-            if syncer:
+            # Prefer explicit per-validator s3/gcs; otherwise use global
+            v_type = getattr(syncer, "type", "") if syncer else ""
+            if v_type in ["s3", "gcs"]:
+                chosen_type = v_type
+            else:
+                chosen_type = getattr(global_settings, "checkpoint_storage", "localStorage") if global_settings else "localStorage"
+
+            if chosen_type:
                 yaml_content += "    checkpoint_syncer:\n"
-                yaml_content += "      type: {}\n".format(getattr(syncer, "type", "localStorage"))
+                yaml_content += "      type: {}\n".format(chosen_type)
+                # Params
+                yaml_content += "      params:\n"
                 params = getattr(syncer, "params", None)
-                if params:
-                    yaml_content += "      params:\n"
-                    if hasattr(params, "path"):
+                if chosen_type == "localStorage":
+                    # If no explicit path provided, default is set by validator service
+                    if params and hasattr(params, "path") and params.path:
                         yaml_content += "        path: {}\n".format(params.path)
-                    if hasattr(params, "bucket"):
-                        yaml_content += "        bucket: {}\n".format(params.bucket)
-                    if hasattr(params, "region"):
-                        yaml_content += "        region: {}\n".format(params.region)
-                    if hasattr(params, "prefix"):
-                        yaml_content += "        prefix: {}\n".format(params.prefix)
+                elif chosen_type == "s3":
+                    # Prefer per-validator params; else use global s3
+                    bucket = (params.bucket if (params and hasattr(params, "bucket")) else getattr(getattr(global_settings, "s3", struct()), "bucket", ""))
+                    region = (params.region if (params and hasattr(params, "region")) else getattr(getattr(global_settings, "s3", struct()), "region", ""))
+                    folder = (params.folder if (params and hasattr(params, "folder")) else getattr(getattr(global_settings, "s3", struct()), "folder", ""))
+                    if bucket:
+                        yaml_content += "        bucket: {}\n".format(bucket)
+                    if region:
+                        yaml_content += "        region: {}\n".format(region)
+                    if folder:
+                        yaml_content += "        folder: {}\n".format(folder)
+                elif chosen_type == "gcs":
+                    bucket = (params.bucket if (params and hasattr(params, "bucket")) else getattr(getattr(global_settings, "gcs", struct()), "bucket", ""))
+                    folder = (params.folder if (params and hasattr(params, "folder")) else getattr(getattr(global_settings, "gcs", struct()), "folder", ""))
+                    if bucket:
+                        yaml_content += "        bucket: {}\n".format(bucket)
+                    if folder:
+                        yaml_content += "        folder: {}\n".format(folder)
 
     # Add ISM configuration if provided
     if global_settings and hasattr(global_settings, "ism"):
@@ -212,7 +233,7 @@ def generate_chains_yaml(chains, validators = None, global_settings = None):
                 
                 yaml_content += "  validators:\n"
                 for validator_addr in validators_list:
-                    yaml_content += "    - {}\n".format(validator_addr)
+                    yaml_content += "    - \"{}\"\n".format(validator_addr)
                 yaml_content += "  threshold: {}\n".format(threshold)
                 
             elif ism.type == "trustedRelayer":

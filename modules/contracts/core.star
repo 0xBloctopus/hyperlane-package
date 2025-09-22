@@ -80,6 +80,7 @@ def deploy_core_contracts(plan, chains, deployer_key):
                     "staticMerkleRootWeightedMultisigIsmFactory": "fromjson | .staticMerkleRootWeightedMultisigIsmFactory",
                     "staticMessageIdMultisigIsmFactory": "fromjson | .staticMessageIdMultisigIsmFactory",
                     "staticMessageIdWeightedMultisigIsmFactory": "fromjson | .staticMessageIdWeightedMultisigIsmFactory",
+                    "interchainGasPaymaster": "fromjson | .interchainGasPaymaster // \"\"",
                 },
             ),
         )
@@ -99,6 +100,7 @@ def deploy_core_contracts(plan, chains, deployer_key):
             "staticMerkleRootWeightedMultisigIsmFactory": result["extract.staticMerkleRootWeightedMultisigIsmFactory"],
             "staticMessageIdMultisigIsmFactory": result["extract.staticMessageIdMultisigIsmFactory"],
             "staticMessageIdWeightedMultisigIsmFactory": result["extract.staticMessageIdWeightedMultisigIsmFactory"],
+            "interchainGasPaymaster": result["extract.interchainGasPaymaster"],
         }
     
     return contract_addresses
@@ -135,10 +137,15 @@ def execute_core_deployment(plan):
         plan: Kurtosis plan object
     """
     # Execute the deployment script
+    deploy_cmd = (
+        "{script} || (echo 'Retrying core deploy after short delay...' && sleep 10 && {script}) "
+        + "|| (echo 'Final core deploy attempt...' && sleep 20 && {script})"
+    ).format(script=constants.DEPLOY_CORE_SCRIPT)
+
     result = plan.exec(
         service_name="hyperlane-cli",
         recipe=ExecRecipe(
-            command=["sh", "-lc", constants.DEPLOY_CORE_SCRIPT],
+            command=["sh", "-lc", deploy_cmd],
         ),
     )
 

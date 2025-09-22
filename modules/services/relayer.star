@@ -22,6 +22,7 @@ def build_relayer_service(
     relay_chains,
     relayer_key,
     allow_local_sync,
+    global_settings,
     agent_image,
     configs_dir,
     checkpoints_dir,
@@ -37,11 +38,13 @@ def build_relayer_service(
         allow_local_sync: Whether to allow local checkpoint syncers
         agent_image: Docker image for the agent
         configs_dir: Configs directory artifact
+        checkpoints_dir: Checkpoints directory artifact
+        minio_details: MinIO service details for S3-compatible storage (optional)
     """
     # log_info("Setting up relayer for chains: {}".format(relay_chains))
 
     # Build environment variables
-    env_vars = build_relayer_env(relay_chains, relayer_key, allow_local_sync)
+    env_vars = build_relayer_env(relay_chains, relayer_key, allow_local_sync, global_settings)
 
     # Build command
     command = build_relayer_command(chains, relay_chains, relayer_key, allow_local_sync)
@@ -66,7 +69,7 @@ def build_relayer_service(
 # ============================================================================
 
 
-def build_relayer_env(relay_chains, relayer_key, allow_local_sync):
+def build_relayer_env(relay_chains, relayer_key, allow_local_sync, global_settings):
     """
     Build environment variables for relayer service
 
@@ -74,17 +77,38 @@ def build_relayer_env(relay_chains, relayer_key, allow_local_sync):
         relay_chains: Comma-separated list of chain names
         relayer_key: Relayer private key
         allow_local_sync: Whether to allow local checkpoint syncers
+        minio_details: MinIO service details for S3-compatible storage (optional)
 
     Returns:
         Dictionary of environment variables
     """
-    return {
+    env_vars = {
         "RELAYER_KEY": relayer_key,
         "ALLOW_LOCAL": "true" if allow_local_sync else "false",
         "RELAY_CHAINS": relay_chains,
         "CONFIG_FILES": "/configs/agent-config.json",
         "RUST_LOG": "debug",
     }
+
+    # Inject AWS creds if S3 storage is enabled so relayer can read checkpoints
+    if getattr(global_settings, "checkpoint_storage", "localStorage") == "s3":
+        s3 = getattr(global_settings, "s3", struct())
+        if getattr(s3, "access_key_id", ""):
+            env_vars["AWS_ACCESS_KEY_ID"] = s3.access_key_id
+        if getattr(s3, "secret_access_key", ""):
+            env_vars["AWS_SECRET_ACCESS_KEY"] = s3.secret_access_key
+        if getattr(s3, "session_token", ""):
+            env_vars["AWS_SESSION_TOKEN"] = s3.session_token
+        if getattr(s3, "region", ""):
+            env_vars["AWS_REGION"] = s3.region
+        # Explicitly pass S3 checkpoint syncer hints via HYP_ env to avoid relying on JSON only
+        if getattr(s3, "bucket", ""):
+            env_vars["HYP_CHECKPOINTSYNCER_BUCKET"] = s3.bucket
+        if getattr(s3, "region", ""):
+            env_vars["HYP_CHECKPOINTSYNCER_REGION"] = s3.region
+        env_vars["HYP_CHECKPOINTSYNCER_TYPE"] = "s3"
+
+    return env_vars
 
 
 # ============================================================================
@@ -101,6 +125,7 @@ def build_relayer_command(chains, relay_chains, relayer_key, allow_local_sync):
         relay_chains: Comma-separated list of chain names
         relayer_key: Relayer private key
         allow_local_sync: Whether to allow local checkpoint syncers
+        minio_details: MinIO service details for S3-compatible storage (optional)
 
     Returns:
         Relayer command string
@@ -122,7 +147,7 @@ def build_relayer_command(chains, relay_chains, relayer_key, allow_local_sync):
     return "{} && {} && {}".format(mkdir_cmd, validate_cmd, full_cmd)
 
 
-def build_full_relayer_command(chains, relay_chains, relayer_key, allow_local_sync):
+def build_full_relayer_command(chains, relay_chains, relayer_key, allow_local_sync, minio_details=None):
     """
     Build the full relayer command using config file directly
 
@@ -131,6 +156,7 @@ def build_full_relayer_command(chains, relay_chains, relayer_key, allow_local_sy
         relay_chains: Comma-separated list of chain names
         relayer_key: Relayer private key
         allow_local_sync: Whether to allow local checkpoint syncers
+        minio_details: MinIO service details for S3-compatible storage (optional)
 
     Returns:
         Complete relayer command

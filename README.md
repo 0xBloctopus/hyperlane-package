@@ -37,6 +37,7 @@ kurtosis service logs hyperlane validator-ethereum
 - [Directory Structure](#-directory-structure)
 - [Inner Workings](#-inner-workings)
 - [Configuration System](#-configuration-system)
+- [Checkpoint Storage](#-checkpoint-storage)
 - [Deployment Flow](#-deployment-flow)
 - [Component Details](#-component-details)
 - [Usage Guide](#-usage-guide)
@@ -370,6 +371,16 @@ The package accepts JSON or YAML configuration with the following structure:
 - **agent_image_tag**: Docker image tag for agent services
 - **cli_version**: Hyperlane CLI version to use
 - **ism**: Default Interchain Security Module configuration
+
+## 🗄️ Checkpoint Storage
+
+Validators write signed checkpoints that the relayer must read before delivering messages. The package supports three storage backends:
+
+- **localStorage** (*default*) – validators and the relayer share `/data/validator-checkpoints` via a persistent volume created in Phase 3. On Kubernetes, back the volume with an RWX storage class so every pod can mount it.
+- **Amazon S3** – set `global.checkpoint_storage: "s3"` and fill `global.s3` with bucket/region (and optionally `folder`). Provide `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` so validators can write, and allow the relayer to read objects (public-read objects or an IAM policy). The package automatically appends a run timestamp to the folder to avoid collisions.
+- **Google Cloud Storage** – set `global.checkpoint_storage: "gcs"` and populate `global.gcs`. Supply service-account credentials if the bucket is not publicly readable.
+
+You can override the default per validator by defining `checkpoint_syncer` blocks. Whatever backend you choose, make sure the relayer can reach the latest checkpoint and proof; otherwise message delivery will stall with “ISM verification failed” errors.
 
 ## 🚀 Deployment Flow
 

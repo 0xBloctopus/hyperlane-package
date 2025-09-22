@@ -301,10 +301,9 @@ async function buildChainConfig(chain) {
   config.merkleTreeHook = deployed.merkleTreeHook || config.merkleTreeHook;
   config.interchainGasPaymaster = deployed.interchainGasPaymaster || config.interchainGasPaymaster || '0x0000000000000000000000000000000000000000';
 
-  // Check if we need to fetch from public registry
-  const needsPublic = !config.mailbox || !config.validatorAnnounce || !config.ism;
-  
-  if (needsPublic) {
+  // If public fallback is enabled, try it; otherwise require provided/deployed addresses
+  const needsAddresses = !config.mailbox || !config.validatorAnnounce;
+  if (needsAddresses && process.env.ENABLE_PUBLIC_FALLBACK === 'true') {
     const publicAddresses = await fetchPublicAddresses(chain.name);
     if (publicAddresses) {
       config.mailbox = config.mailbox || publicAddresses.mailbox;
@@ -315,10 +314,18 @@ async function buildChainConfig(chain) {
     }
   }
 
-  // Log missing addresses
-  if (!config.mailbox) {
-    logger.error(`Missing mailbox address for ${chain.name}`);
+  // Enforce required addresses when fallback is disabled
+  if (!config.mailbox || !config.validatorAnnounce) {
+    throw new Error(
+      `Missing required core addresses for chain '${chain.name}'. ` +
+      `Provide existing_addresses or enable deploy_core for this chain. ` +
+      `Found mailbox='${config.mailbox}', validatorAnnounce='${config.validatorAnnounce}'.`
+    );
   }
+
+  // Log missing addresses
+  // (These should be caught above if fallback disabled)
+  if (!config.mailbox) logger.error(`Missing mailbox address for ${chain.name}`);
 
   // Add block height optimization for sync starting point
   try {
@@ -405,7 +412,13 @@ async function buildAgentConfig(args) {
         type: "s3",
         bucket: syncerConfig.params?.bucket || "",
         region: syncerConfig.params?.region || "",
-        prefix: syncerConfig.params?.prefix || ""
+        folder: syncerConfig.params?.folder || ""
+      };
+    } else if (syncerConfig.type === "gcs") {
+      config.checkpointSyncer = {
+        type: "gcs",
+        bucket: syncerConfig.params?.bucket || "",
+        folder: syncerConfig.params?.folder || ""
       };
     } else {
       // Default to localStorage

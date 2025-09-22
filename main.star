@@ -92,6 +92,18 @@ def run(plan, args):
 
     plan.print("Phase 4: Deploying contracts")
 
+    # If using a non-default ISM, force a fresh core deployment to apply new ISM
+    if getattr(global_settings, "ism", struct()).type and global_settings.ism.type != "trustedRelayer":
+        plan.exec(
+            service_name="hyperlane-cli",
+            recipe=ExecRecipe(
+                command=[
+                    "sh", "-lc",
+                    "echo 'Forcing core re-deploy due to ISM change' && rm -f /configs/.done-core-* /configs/.deploy-core /configs/registry/chains/*/addresses.yaml || true && ls -l /configs/registry/chains/* || true"
+                ],
+            ),
+        )
+
     # Deploy core contracts if needed and capture addresses
     contract_addresses = core_module.deploy_core_contracts(plan, config.chains, agent_config.deployer_key)
 
@@ -132,6 +144,61 @@ def run(plan, args):
                     # Extract and display mailbox addresses for verification
                     echo "Configured mailbox addresses:"
                     cat /configs/agent-config.json | grep -A2 -B2 "mailbox" | head -20
+                    # Strict validation: require mailbox and validatorAnnounce for all chains
+                    node -e '
+                      const fs=require("fs");
+                      const j=JSON.parse(fs.readFileSync("/configs/agent-config.json","utf8"));
+                      const missing=[];
+                      for(const [name,conf] of Object.entries(j.chains||{})){
+                        if(!conf.mailbox||!conf.validatorAnnounce){ missing.push(name); }
+                      }
+                      if(missing.length){
+                        console.error("ERROR: Missing mailbox/validatorAnnounce for chains:", missing.join(", "));
+                        process.exit(1);
+                      } else {
+                        console.log("Core addresses present for all chains.");
+                      }
+                    '
+                    echo "Auto-funding validator chain signers if needed..."
+                    node -e '
+                      const { execSync } = require("child_process");
+                      const fs=require("fs");
+                      const j=JSON.parse(fs.readFileSync("/configs/agent-config.json","utf8"));
+                      const chains=j.chains||{};
+                      const validatorsKeys = [];
+                      try {
+                        const cfgRaw = fs.readFileSync("/work/input-config.yaml","utf8");
+                        // Parse minimal YAML for validators: naive parse to find signing_key entries
+                        const keys = Array.from(cfgRaw.matchAll(/signing_key:[ ]*(0x[0-9a-fA-F]{64})/g)).map(m=>m[1]);
+                        validatorsKeys.push(...keys);
+                      } catch (e) {}
+                      const rpcByName = {};
+                      for (const [n,c] of Object.entries(chains)) {
+                        const rpc = (c.rpcUrls&&c.rpcUrls[0]&&c.rpcUrls[0].http)||c.connection?.url;
+                        if (rpc) rpcByName[n]=rpc;
+                      }
+                      const uniq = new Map();
+                      for (const key of validatorsKeys){
+                        try{ const out = execSync(`cast wallet address --private-key ${key}`); const addr=out.toString().trim(); uniq.set(addr,key);}catch(e){}
+                      }
+                      const hypKey = process.env.HYP_KEY || "";
+                      const pk = hypKey.startsWith("0x") ? hypKey.slice(2) : hypKey;
+                      for (const [n,rpc] of Object.entries(rpcByName)){
+                        for (const [addr,key] of uniq.entries()){
+                          try{
+                            const balHex = execSync(`cast rpc eth_getBalance ${addr} latest --rpc-url ${rpc}`).toString().trim();
+                            const bal = BigInt(balHex.replace(/"/g,''));
+                            const min = 1_000_000_000_000_000n; // 0.001 ETH
+                            if (bal < min){
+                              execSync(`cast send ${addr} --value 0.002ether --private-key=${pk} --rpc-url ${rpc} --legacy`, {stdio:"pipe"});
+                              console.log('Funded', addr, 'on', n);
+                            } else {
+                              console.log(`Sufficient balance for ${addr} on ${n}`);
+                            }
+                          }catch(e){ console.log(`Funding check failed for ${addr} on ${n}: ${e.message}`); }
+                        }
+                      }
+                    '
                 else
                     echo "ERROR: Agent config was not generated!"
                     exit 1
@@ -141,11 +208,86 @@ def run(plan, args):
         ),
     )
 
+    # Ensure minimal chains.yaml exists for CLI even if core isn't redeployed
+    chains_yaml = ""
+    for ch in config.chains:
+        name = getattr(ch, "name", "")
+        cid = str(getattr(ch, "chain_id", getattr(ch, "chainId", 0)))
+        chains_yaml += "{}:\n  chainId: {}\n  protocol: ethereum\n".format(name, cid)
+
+    plan.exec(
+        service_name="hyperlane-cli",
+        recipe=ExecRecipe(
+            command=[
+                "sh",
+                "-lc",
+                """
+                set -e
+                mkdir -p /configs/registry
+                cat > /configs/registry/chains.yaml << 'EOF'
+                {content}
+                EOF
+                echo "Wrote /configs/registry/chains.yaml"
+                cat /configs/registry/chains.yaml
+                """.format(content=chains_yaml),
+            ],
+        ),
+    )
+
+    # Patch checkpointSyncer in agent-config.json if global storage mode demands it (s3/gcs)
+    if getattr(global_settings, "checkpoint_storage", "localStorage") == "s3":
+        bucket = getattr(global_settings.s3, "bucket", "")
+        region = getattr(global_settings.s3, "region", "")
+        folder = getattr(global_settings.s3, "folder", "validator")
+        # 1) Update agent-config.json to set S3 checkpoint syncer with a unique per-run folder suffix
+        plan.exec(
+            service_name="hyperlane-cli",
+            recipe=ExecRecipe(
+                command=[
+                    "sh",
+                    "-lc",
+                    (
+                        "export BUCKET='" + bucket + "' REGION='" + region + "' FOLDER='" + folder + "' RUN_ID=$(date +%s); " +
+                        "node -e 'const fs=require(\"fs\");const f=\"/configs/agent-config.json\";let j=JSON.parse(fs.readFileSync(f));"+
+                        "const folder=process.env.FOLDER||\"validator\";const run=process.env.RUN_ID;"+
+                        "j.checkpointSyncer={type:\"s3\",bucket:process.env.BUCKET,region:process.env.REGION,folder:folder+\"/\"+run};"+
+                        "fs.writeFileSync(f,JSON.stringify(j,null,2));console.log(\"checkpointSyncer set to S3 with folder suffix\", j.checkpointSyncer.folder);'"
+                    ),
+                ],
+            ),
+        )
+        # Note: We no longer attempt to set S3 bucket policies from inside the container.
+        # Please ensure the bucket policy allows relayer reads (e.g., public read or IAM permissions).
+    elif getattr(global_settings, "checkpoint_storage", "localStorage") == "gcs":
+        bucket = getattr(global_settings.gcs, "bucket", "")
+        folder = getattr(global_settings.gcs, "folder", "")
+        plan.exec(
+            service_name="hyperlane-cli",
+            recipe=ExecRecipe(
+                command=[
+                    "sh",
+                    "-lc",
+                    (
+                        "BUCKET='" + bucket + "' FOLDER='" + folder + "' " +
+                        "node -e 'const fs=require(\"fs\");const f=\"/configs/agent-config.json\";let j=JSON.parse(fs.readFileSync(f));"+
+                        "j.checkpointSyncer={type:\"gcs\",bucket:process.env.BUCKET"+
+                        (" ,folder:process.env.FOLDER" if folder else "")+
+                        "};fs.writeFileSync(f,JSON.stringify(j,null,2));console.log(\"checkpointSyncer set to GCS\");'"
+                    ),
+                ],
+            ),
+        )
+
     # ========================================
-    # PHASE 6: Agent Services Deployment
+    # PHASE 6: Storage Mode (local/s3/gcs) via agent config
+    # ========================================
+    # Storage is fully controlled by agent-config.json (validators.checkpoint_syncer)
+
+    # ========================================
+    # PHASE 7: Agent Services Deployment
     # ========================================
 
-    plan.print("Phase 6: Deploying agent services")
+    plan.print("Phase 7: Deploying agent services")
 
     # Get agent Docker image
     agent_image = agents_module.get_agent_image(global_settings.agent_tag)
@@ -154,6 +296,23 @@ def run(plan, args):
     checkpoints_dir = helpers_module.create_persistent_directory(
         "validator-checkpoints"
     )
+    # Ensure per-chain subfolders exist with permissive permissions for non-root agents
+    plan.add_service(
+        name="checkpoints-init",
+        config=ServiceConfig(
+            image="alpine:3.19",
+            entrypoint=["/bin/sh", "-lc"],
+            files={
+                constants.VALIDATOR_CHECKPOINTS_DIR: checkpoints_dir,
+            },
+            cmd=[
+                "mkdir -p {dir}/validator-sepolia {dir}/validator-arbitrumsepolia && chmod -R 777 {dir}".format(
+                    dir=constants.VALIDATOR_CHECKPOINTS_DIR
+                )
+            ],
+        ),
+    )
+
     validator_service.deploy_validators(
         plan,
         agent_config.validators,
@@ -161,6 +320,8 @@ def run(plan, args):
         agent_image,
         configs_dir,
         checkpoints_dir,
+        global_settings,
+        agent_config.deployer_key,
     )
 
     # Deploy relayer
@@ -170,16 +331,17 @@ def run(plan, args):
         relay_chains,
         agent_config.relayer_key,
         agent_config.allow_local_sync,
+        global_settings,
         agent_image,
         configs_dir,
         checkpoints_dir,
     )
 
     # ========================================
-    # PHASE 7: Testing
+    # PHASE 8: Testing
     # ========================================
 
-    plan.print("Phase 7: Running tests")
+    plan.print("Phase 8: Running tests")
 
     # Run send test if configured
     test_module.run_send_test(plan, test_config, config.warp_routes)

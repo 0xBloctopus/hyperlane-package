@@ -31,6 +31,8 @@ COPY deployment-scripts/seed_liquidity.sh /usr/local/bin/seed_liquidity.sh
 
 # Copy utility scripts
 COPY utilities/send_warp.sh /usr/local/bin/send_warp.sh
+COPY utilities/announce_validator.js /usr/local/bin/announce_validator.js
+COPY utilities/announce_validator.js /work/announce_validator.js
 COPY utilities/balances.js /usr/local/bin/balances.js
 COPY utilities/parse_txhash.js /usr/local/bin/parse_txhash.js
 

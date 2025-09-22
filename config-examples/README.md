@@ -12,13 +12,12 @@ kurtosis run . --args-file config-examples/multisig-config.json
 
 ## Available Templates
 
-- **multisig-config.json** - Basic multisig ISM configuration
-- **existing-contracts-config.json** - Configuration for using existing deployed contracts
-- **custom-chains-config.json** - Custom chain names with enhanced validation
-- **ism-types-config.json** - Different ISM types demonstration 
-- **routing-ism-config.json** - Routing ISM with per-domain security models
-- **aggregation-ism-config.json** - Aggregation ISM with multiple security modules
-- **custom-chains-config.yaml** - YAML version of custom chains configuration
+- **multisig-config.json** – baseline deployment using the default `messageIdMultisigIsm`
+- **existing-contracts-config.json** – reuse previously deployed Mailboxes/Announcers
+- **custom-chains-config.json** – demo of custom chain names & registry generation
+- **routing-ism-config.json** – per-domain security via the routing ISM
+- **aggregation-ism-config.json** – combine multiple ISMs behind a threshold
+- **test_sepolia_s3.json** – ready-to-run S3 checkpoint scenario (used in docs)
 
 ## Template Structure
 

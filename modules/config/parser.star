@@ -142,7 +142,7 @@ def parse_global_config(global_config):
 
     return struct(
         agent_tag=safe_get(
-            global_config, "agent_image_tag", constants.DEFAULT_AGENT_TAG
+            global_config, "agent_tag", constants.DEFAULT_AGENT_TAG
         ),
         ism=parsed_ism,
         cli_version=safe_get(
@@ -150,6 +150,24 @@ def parse_global_config(global_config):
         ),
         registry_mode=safe_get(
             global_config, "registry_mode", constants.DEFAULT_REGISTRY_MODE
+        ),
+        checkpoint_storage=safe_get(
+            global_config, "checkpoint_storage", "localStorage"
+        ),
+        # Optional global storage params to apply to all validators if not specified per-validator
+        s3=struct(
+            bucket=safe_get(safe_get(global_config, "s3", {}), "bucket", ""),
+            region=safe_get(safe_get(global_config, "s3", {}), "region", ""),
+            folder=safe_get(safe_get(global_config, "s3", {}), "folder", ""),
+            access_key_id=safe_get(safe_get(global_config, "s3", {}), "access_key_id", ""),
+            secret_access_key=safe_get(safe_get(global_config, "s3", {}), "secret_access_key", ""),
+            session_token=safe_get(safe_get(global_config, "s3", {}), "session_token", ""),
+        ),
+        gcs=struct(
+            bucket=safe_get(safe_get(global_config, "gcs", {}), "bucket", ""),
+            folder=safe_get(safe_get(global_config, "gcs", {}), "folder", ""),
+            service_account_key=safe_get(safe_get(global_config, "gcs", {}), "service_account_key", ""),
+            user_secrets=safe_get(safe_get(global_config, "gcs", {}), "user_secrets", ""),
         ),
         # Additional ISM build configuration for deployment
         ism_build_config=build_ism_config(raw_ism, ""),
@@ -284,6 +302,9 @@ def parse_validator_config(validator):
         path=safe_get(params, "path", ""),
         bucket=safe_get(params, "bucket", ""),
         region=safe_get(params, "region", ""),
+        folder=safe_get(params, "folder", ""),
+        service_account_key=safe_get(params, "service_account_key", ""),
+        user_secrets=safe_get(params, "user_secrets", ""),
     )
 
     return struct(

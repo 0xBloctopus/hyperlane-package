@@ -287,12 +287,17 @@ deploy_core_with_retry() {
             fi
             return 0
         fi
-        
+
         # Check for nonce errors
         if grep -q "nonce has already been used\|nonce too low" "$log_file"; then
             if [ $attempt -lt $MAX_RETRY_ATTEMPTS ]; then
                 log_info "⚠️  Nonce error detected on ${chain_name}, this may indicate contracts are already deployed"
                 log_info "🔄 Retrying deployment (attempt $attempt/$MAX_RETRY_ATTEMPTS)..."
+                sleep $RETRY_DELAY
+            fi
+        elif grep -qi "timeout" "$log_file"; then
+            if [ $attempt -lt $MAX_RETRY_ATTEMPTS ]; then
+                log_info "⚠️  Timeout when deploying to ${chain_name}, retrying (attempt $attempt/$MAX_RETRY_ATTEMPTS)..."
                 sleep $RETRY_DELAY
             fi
         else
@@ -422,6 +427,99 @@ main() {
         deploy_core_to_chain "$chain" "$rpc" "$chain_id"
     done
     
+    # Deploy IGP contracts if enabled (optional but recommended for production)
+    if [ "${DEPLOY_IGP:-true}" = "true" ]; then
+        log_info "Deploying InterchainGasPaymaster (IGP) contracts..."
+
+        # Get deployer address for IGP configuration
+        local DEPLOYER_ADDRESS=""
+        if [ -n "$HYP_KEY" ]; then
+            DEPLOYER_ADDRESS=$(cast wallet address "$HYP_KEY" 2>/dev/null || echo "")
+        fi
+
+        if [ -z "$DEPLOYER_ADDRESS" ]; then
+            log_warn "Could not derive deployer address, skipping IGP deployment"
+        else
+            for chain in "${CHAINS[@]}"; do
+                local igp_stamp="${CONFIGS_DIR}/.done-igp-${chain}"
+
+                # Skip if already deployed
+                if check_stamp_file "$igp_stamp"; then
+                    log_info "IGP already deployed for ${chain}, skipping"
+                    continue
+                fi
+
+                log_info "Deploying IGP for ${chain}..."
+
+                # Create minimal IGP hook configuration
+                cat > "/tmp/igp-hook-${chain}.yaml" <<EOF
+type: interchainGasPaymaster
+beneficiary: "${DEPLOYER_ADDRESS}"
+owner: "${DEPLOYER_ADDRESS}"
+oracleKey: "${DEPLOYER_ADDRESS}"
+gasOracleType: storageGasOracle
+overhead:
+  default: 50000
+EOF
+
+                # Try to deploy using hyperlane CLI
+                local deploy_log="/tmp/deploy-igp-${chain}.log"
+                if hyperlane deploy hook \
+                    --chain "${chain}" \
+                    --config "/tmp/igp-hook-${chain}.yaml" \
+                    --registry "${REGISTRY_DIR}" \
+                    --key "${HYP_KEY}" \
+                    --yes 2>&1 | tee "$deploy_log"; then
+
+                    # Try to extract IGP address from deployment output
+                    # Look for patterns like "InterchainGasPaymaster deployed at: 0x..."
+                    local igp_addr=$(grep -oP 'InterchainGasPaymaster.*?0x[a-fA-F0-9]{40}' "$deploy_log" | grep -oP '0x[a-fA-F0-9]{40}' | head -1)
+
+                    # Alternative pattern matching if first fails
+                    if [ -z "$igp_addr" ]; then
+                        igp_addr=$(grep -oP 'deployed.*?0x[a-fA-F0-9]{40}' "$deploy_log" | grep -oP '0x[a-fA-F0-9]{40}' | head -1)
+                    fi
+
+                    if [ -n "$igp_addr" ]; then
+                        # Update addresses.yaml with IGP address
+                        local addr_file="${REGISTRY_DIR}/chains/${chain}/addresses.yaml"
+
+                        # Check if interchainGasPaymaster already exists in file
+                        if grep -q "^interchainGasPaymaster:" "$addr_file" 2>/dev/null; then
+                            # Update existing entry
+                            sed -i "s/^interchainGasPaymaster:.*/interchainGasPaymaster: ${igp_addr}/" "$addr_file"
+                        else
+                            # Add new entry
+                            echo "interchainGasPaymaster: ${igp_addr}" >> "$addr_file"
+                        fi
+
+                        # Also update JSON addresses file if it exists
+                        local json_file="${CONFIGS_DIR}/addresses-${chain}.json"
+                        if [ -f "$json_file" ]; then
+                            # Use yq to update JSON
+                            yq -i '.interchainGasPaymaster = "'${igp_addr}'"' -o json "$json_file" 2>/dev/null || true
+                        fi
+
+                        log_info "✅ IGP deployed for ${chain} at: ${igp_addr}"
+                        create_stamp_file "$igp_stamp"
+                    else
+                        log_warn "⚠️  IGP deployed but could not extract address for ${chain}"
+                        # Still mark as done to avoid re-deployment attempts
+                        create_stamp_file "$igp_stamp"
+                    fi
+                else
+                    log_warn "⚠️  IGP deployment failed for ${chain}, continuing with zero address fallback"
+                    # Don't create stamp file so it can be retried if needed
+                fi
+
+                # Small delay between deployments to avoid nonce issues
+                sleep 2
+            done
+        fi
+    else
+        log_info "IGP deployment disabled (DEPLOY_IGP=false), using zero address as placeholder"
+    fi
+
     # Mark overall deployment as complete
     create_stamp_file "${CONFIGS_DIR}/.deploy-core"
     log_info "Core deployment completed for all chains"

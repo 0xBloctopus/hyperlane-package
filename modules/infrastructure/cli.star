@@ -165,9 +165,23 @@ def build_cli_environment(chain_info, global_settings, deployer_key):
         # Hyperlane CLI environment variables for custom chains
         "HYP_REGISTRY": constants.REGISTRY_DIR,
         "HYP_CHAINS_FILE": constants.REGISTRY_DIR + "/chains.yaml",
-        # Disable SSL verification for internal services with self-signed certificates
-        "NODE_TLS_REJECT_UNAUTHORIZED": "0",
+        # Force redeploy core contracts even if registry has addresses (keeps versions aligned with agents)
+        "FORCE_DEPLOY_CORE": "true",
+        # Enable verbose output from the Node generator when needed
+        "DEBUG": "1",
     }
+
+    # Pass AWS credentials to CLI for S3 policy management if configured
+    if hasattr(global_settings, "s3"):
+        s3 = global_settings.s3
+        if getattr(s3, "access_key_id", ""):
+            env_vars["AWS_ACCESS_KEY_ID"] = s3.access_key_id
+        if getattr(s3, "secret_access_key", ""):
+            env_vars["AWS_SECRET_ACCESS_KEY"] = s3.secret_access_key
+        if getattr(s3, "session_token", ""):
+            env_vars["AWS_SESSION_TOKEN"] = s3.session_token
+        if getattr(s3, "region", ""):
+            env_vars["AWS_REGION"] = s3.region
 
     # Add ISM configuration if provided
     if hasattr(global_settings, "ism"):
