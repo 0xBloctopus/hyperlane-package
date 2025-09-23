@@ -292,26 +292,28 @@ def run(plan, args):
     # Get agent Docker image
     agent_image = agents_module.get_agent_image(global_settings.agent_tag)
 
-    # Create a shared persistent checkpoints directory and deploy validators
+    # Create shared checkpoints directory (used by localStorage mode)
     checkpoints_dir = helpers_module.create_persistent_directory(
         "validator-checkpoints"
     )
-    # Ensure per-chain subfolders exist with permissive permissions for non-root agents
-    plan.add_service(
-        name="checkpoints-init",
-        config=ServiceConfig(
-            image="alpine:3.19",
-            entrypoint=["/bin/sh", "-lc"],
-            files={
-                constants.VALIDATOR_CHECKPOINTS_DIR: checkpoints_dir,
-            },
-            cmd=[
-                "mkdir -p {dir}/validator-sepolia {dir}/validator-arbitrumsepolia && chmod -R 777 {dir}".format(
-                    dir=constants.VALIDATOR_CHECKPOINTS_DIR
-                )
-            ],
-        ),
-    )
+
+    # Only seed/check chmod when running in local storage mode
+    if getattr(global_settings, "checkpoint_storage", "localStorage") == "localStorage":
+        plan.add_service(
+            name="checkpoints-init",
+            config=ServiceConfig(
+                image="alpine:3.19",
+                entrypoint=["/bin/sh", "-lc"],
+                files={
+                    constants.VALIDATOR_CHECKPOINTS_DIR: checkpoints_dir,
+                },
+                cmd=[
+                    "mkdir -p {dir}/validator-sepolia {dir}/validator-arbitrumsepolia && chmod -R 777 {dir} && tail -f /dev/null".format(
+                        dir=constants.VALIDATOR_CHECKPOINTS_DIR
+                    )
+                ],
+            ),
+        )
 
     validator_service.deploy_validators(
         plan,
