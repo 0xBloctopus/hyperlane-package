@@ -1,0 +1,15 @@
+{
+  "owner": "0x29000422a70DF7E8C03cC3bCD3Cf88764EEc2714",
+  "defaultIsm": {
+  "type": "trustedRelayerIsm",
+  "relayer": "0x29000422a70DF7E8C03cC3bCD3Cf88764EEc2714"
+},
+  "defaultHook": {
+    "type": "merkleTreeHook"
+  },
+  "requiredHook": {
+    "type": "pausableHook",
+    "paused": false,
+    "owner": "0x29000422a70DF7E8C03cC3bCD3Cf88764EEc2714"
+  }
+}

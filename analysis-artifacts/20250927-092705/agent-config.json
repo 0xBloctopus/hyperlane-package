@@ -1,0 +1,86 @@
+{
+  "chains": {
+    "imaginativegiraffe": {
+      "name": "imaginativegiraffe",
+      "chainId": 9696235,
+      "domainId": 9696235,
+      "protocol": "ethereum",
+      "rpcUrls": [
+        {
+          "http": "https://5cf0ce0084804f9280005050823ad6db-rpc.network.bloctopus.io"
+        }
+      ],
+      "connection": {
+        "url": "https://5cf0ce0084804f9280005050823ad6db-rpc.network.bloctopus.io"
+      },
+      "mailbox": "0x1ad5aD81b17189dc71d55ECe24619EC9B7f0996c",
+      "validatorAnnounce": "0xaf2Fa3468062A5227e0609B4a0dA5714D5983D38",
+      "ism": "",
+      "merkleTreeHook": "0xA89b996d4F7A24F6Fdf0Fe82Dda7946b15DaBe38",
+      "interchainGasPaymaster": "0x0000000000000000000000000000000000000000",
+      "index": {
+        "from": 4754
+      }
+    },
+    "sincereseagull": {
+      "name": "sincereseagull",
+      "chainId": 9108292,
+      "domainId": 9108292,
+      "protocol": "ethereum",
+      "rpcUrls": [
+        {
+          "http": "https://ee34222ffcf84491945b4cf2f5d45f9e-rpc.network.bloctopus.io"
+        }
+      ],
+      "connection": {
+        "url": "https://ee34222ffcf84491945b4cf2f5d45f9e-rpc.network.bloctopus.io"
+      },
+      "mailbox": "0x6497Cd4f0fB2Ead57C8E7A32Fef1E0049a5d3fB3",
+      "validatorAnnounce": "0x0C7B28f77EFe5524237cA8A64cFE11c3671E8836",
+      "ism": "",
+      "merkleTreeHook": "0x6F6dFFaD079e00fcFB786688F18c66dcb9b9cdF7",
+      "interchainGasPaymaster": "0x0000000000000000000000000000000000000000",
+      "index": {
+        "from": 4871
+      }
+    }
+  },
+  "defaultism": {
+    "imaginativegiraffe": {
+      "type": "messageIdMultisigIsm",
+      "validators": [
+        "0x164A1dF1711a4929e3506fF6C4DA91Dc86ee25cE",
+        "0x64375b70a6BAe8d0025D49Dee3Cd675aD939eE49"
+      ],
+      "threshold": 2
+    },
+    "sincereseagull": {
+      "type": "messageIdMultisigIsm",
+      "validators": [
+        "0x164A1dF1711a4929e3506fF6C4DA91Dc86ee25cE",
+        "0x64375b70a6BAe8d0025D49Dee3Cd675aD939eE49"
+      ],
+      "threshold": 2
+    }
+  },
+  "validator": {
+    "type": "hexKey",
+    "key": "0xb66c2f59913eece5c43154a4e272f82721da1a90c13c6cfcc2146bc47ea0bf2f"
+  },
+  "checkpointSyncer": {
+    "type": "s3",
+    "bucket": "hyperlane-checkpoints-1758224897-3862",
+    "region": "eu-west-1",
+    "folder": "validator/9696235/0x164A1dF1711a4929e3506fF6C4DA91Dc86ee25cE",
+    "prefix": "eu-west-1"
+  },
+  "ism": {
+    "type": "messageIdMultisigIsm",
+    "validators": [
+      "0x164A1dF1711a4929e3506fF6C4DA91Dc86ee25cE",
+      "0x64375b70a6BAe8d0025D49Dee3Cd675aD939eE49"
+    ],
+    "threshold": 2
+  },
+  "originChainName": "imaginativegiraffe"
+}

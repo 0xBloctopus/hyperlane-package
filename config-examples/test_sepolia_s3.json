@@ -1,0 +1,104 @@
+{
+  "chains": [
+    {
+      "name": "sepolia",
+      "rpc_url": "https://eth-sepolia.g.alchemy.com/v2/CntdPAqv-EDEnEFb-7j7O",
+      "chain_id": 11155111,
+      "deploy_core": true
+    },
+    {
+      "name": "arbitrumsepolia",
+      "rpc_url": "https://arb-sepolia.g.alchemy.com/v2/CntdPAqv-EDEnEFb-7j7O",
+      "chain_id": 421614,
+      "deploy_core": true
+    }
+  ],
+  "agents": {
+    "deployer": { "key": "0x1cdf65ac75f477650040ebe272ddaffb6735dcf55bd651869963ada71944e6db" },
+    "relayer": {
+      "key": "0x1cdf65ac75f477650040ebe272ddaffb6735dcf55bd651869963ada71944e6db",
+      "allow_local_checkpoint_syncers": false
+    },
+    "validators": [
+      {
+        "chain": "sepolia",
+        "signing_key": "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97",
+        "checkpoint_syncer": {
+          "type": "s3",
+          "params": {
+            "bucket": "hyperlane-checkpoints-1758224897-3862",
+            "region": "eu-west-1",
+            "prefix": "eu-west-1",
+            "folder": "validator/sepolia/0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+          }
+        }
+      },
+      {
+        "chain": "sepolia",
+        "signing_key": "0x7994f484293a19269d73ed73c22507e785ab5b433852a128aa72e69a58cc3aa7",
+        "checkpoint_syncer": {
+          "type": "s3",
+          "params": {
+            "bucket": "hyperlane-checkpoints-1758224897-3862",
+            "region": "eu-west-1",
+            "prefix": "eu-west-1",
+            "folder": "validator/sepolia/0xd3aB74b1581fc71a9015A830DFb0facd3EE694b4"
+          }
+        }
+      },
+      {
+        "chain": "arbitrumsepolia",
+        "signing_key": "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97",
+        "checkpoint_syncer": {
+          "type": "s3",
+          "params": {
+            "bucket": "hyperlane-checkpoints-1758224897-3862",
+            "region": "eu-west-1",
+            "prefix": "eu-west-1",
+            "folder": "validator/arbitrumsepolia/0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+          }
+        }
+      },
+      {
+        "chain": "arbitrumsepolia",
+        "signing_key": "0x7994f484293a19269d73ed73c22507e785ab5b433852a128aa72e69a58cc3aa7",
+        "checkpoint_syncer": {
+          "type": "s3",
+          "params": {
+            "bucket": "hyperlane-checkpoints-1758224897-3862",
+            "region": "eu-west-1",
+            "prefix": "eu-west-1",
+            "folder": "validator/arbitrumsepolia/0xd3aB74b1581fc71a9015A830DFb0facd3EE694b4"
+          }
+        }
+      }
+    ]
+  },
+  "global": {
+    "agent_tag": "agents-v1.4.0",
+    "cli_version": "latest",
+    "checkpoint_storage": "s3",
+    "ism": {
+      "type": "messageIdMultisigIsm",
+      "validators": [
+        "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f",
+        "0xd3aB74b1581fc71a9015A830DFb0facd3EE694b4"
+      ],
+      "threshold": 2
+    },
+    "s3": {
+      "bucket": "hyperlane-checkpoints-1758224897-3862",
+      "region": "eu-west-1",
+      "folder": "validator",
+      "prefix": "eu-west-1",
+      "access_key_id": "REPLACE_ME_AWS_ACCESS_KEY_ID",
+      "secret_access_key": "REPLACE_ME_AWS_SECRET_ACCESS_KEY"
+    },
+    "send_test": {
+      "enabled": false,
+      "origin": "sepolia",
+      "destination": "arbitrumsepolia",
+      "amount": "1"
+    }
+  }
+}

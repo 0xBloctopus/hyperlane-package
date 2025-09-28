@@ -1,0 +1,10 @@
+name: imaginativegiraffe
+protocol: ethereum
+chainId: 9696235
+domainId: 9696235
+rpcUrls:
+  - http: https://5cf0ce0084804f9280005050823ad6db-rpc.network.bloctopus.io
+nativeToken:
+  name: Ether
+  symbol: ETH
+  decimals: 18

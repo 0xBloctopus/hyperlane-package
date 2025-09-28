@@ -1,0 +1,11 @@
+                imaginativegiraffe:
+  chainId: 9696235
+  protocol: ethereum
+sincereseagull:
+  chainId: 9108292
+  protocol: ethereum
+
+                EOF
+                echo "Wrote /configs/registry/chains.yaml"
+                cat /configs/registry/chains.yaml
+                

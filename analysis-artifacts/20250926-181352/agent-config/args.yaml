@@ -1,0 +1,54 @@
+chains:
+  - name: imaginativegiraffe
+    rpc_url: https://5cf0ce0084804f9280005050823ad6db-rpc.network.bloctopus.io
+    chain_id: 9696235
+    existing_addresses: {}
+  - name: sincereseagull
+    rpc_url: https://ee34222ffcf84491945b4cf2f5d45f9e-rpc.network.bloctopus.io
+    chain_id: 9108292
+    existing_addresses: {}
+
+validators:
+  - chain: imaginativegiraffe
+    signing_key: "0x50ca363b3550349237d681a4a747edca1b0204ab715cab8366dba7ae4a6fa9fd"
+    checkpoint_syncer:
+      type: s3
+      params:
+        bucket: "hyperlane-checkpoints-1758224897-3862"
+        region: "eu-west-1"
+        folder: "validator/9696235/0xBCFB402Bc4A68c652C63212F8c197D3006ba0b07"
+        prefix: "eu-west-1"
+  - chain: imaginativegiraffe
+    signing_key: "0x9a2b2447c7d907300894d52e7fcde23f6a81903367871b77f23752b6561ee8e9"
+    checkpoint_syncer:
+      type: s3
+      params:
+        bucket: "hyperlane-checkpoints-1758224897-3862"
+        region: "eu-west-1"
+        folder: "validator/9696235/0x679874C6494ec0FE5335803e75692ddD25cf53d7"
+        prefix: "eu-west-1"
+  - chain: sincereseagull
+    signing_key: "0x50ca363b3550349237d681a4a747edca1b0204ab715cab8366dba7ae4a6fa9fd"
+    checkpoint_syncer:
+      type: s3
+      params:
+        bucket: "hyperlane-checkpoints-1758224897-3862"
+        region: "eu-west-1"
+        folder: "validator/9108292/0xBCFB402Bc4A68c652C63212F8c197D3006ba0b07"
+        prefix: "eu-west-1"
+  - chain: sincereseagull
+    signing_key: "0x9a2b2447c7d907300894d52e7fcde23f6a81903367871b77f23752b6561ee8e9"
+    checkpoint_syncer:
+      type: s3
+      params:
+        bucket: "hyperlane-checkpoints-1758224897-3862"
+        region: "eu-west-1"
+        folder: "validator/9108292/0x679874C6494ec0FE5335803e75692ddD25cf53d7"
+        prefix: "eu-west-1"
+
+default_ism:
+  type: messageIdMultisigIsm
+  validators:
+    - "0xBCFB402Bc4A68c652C63212F8c197D3006ba0b07"
+    - "0x679874C6494ec0FE5335803e75692ddD25cf53d7"
+  threshold: 2

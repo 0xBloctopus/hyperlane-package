@@ -1,0 +1,10 @@
+name: sincereseagull
+protocol: ethereum
+chainId: 9108292
+domainId: 9108292
+rpcUrls:
+  - http: https://ee34222ffcf84491945b4cf2f5d45f9e-rpc.network.bloctopus.io
+nativeToken:
+  name: Ether
+  symbol: ETH
+  decimals: 18

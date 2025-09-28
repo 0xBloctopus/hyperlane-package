@@ -1,0 +1,103 @@
+{
+  "chains": [
+    {
+      "name": "angrycapybara",
+      "rpc_url": "https://062013d01f30417cb6e764fe6eea9d01-rpc.network.bloctopus.io",
+      "chain_id": 2011515,
+      "deploy_core": true
+    },
+    {
+      "name": "creativenarwhal",
+      "rpc_url": "https://c93385578ab1429ca1a4b0e06f79897e-rpc.network.bloctopus.io",
+      "chain_id": 8325703,
+      "deploy_core": true
+    }
+  ],
+  "agents": {
+    "deployer": { "key": "0x3a23daa1250597152769c50729081a957271a32fee151e478356d1f75867a527" },
+    "relayer": {
+      "key": "0x06b4663eb7de6a015b6d42a9a4fbaaf8d8478c35a6e6e56c22be5598ba9f62a1",
+      "allow_local_checkpoint_syncers": false
+    },
+    "validators": [
+      {
+        "chain": "angrycapybara",
+        "signing_key": "0x3ba6783da7689129b116486f1fea17039d60a97fad49d83c32dbe478dce889a4",
+        "checkpoint_syncer": {
+          "type": "s3",
+          "params": {
+            "bucket": "hyperlane-checkpoints-1758224897-3862",
+            "region": "eu-west-1",
+            "prefix": "eu-west-1",
+            "folder": "validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606"
+          }
+        }
+      },
+      {
+        "chain": "angrycapybara",
+        "signing_key": "0x192c0261089de5eb0a21773cfb13934aac6d7158b1276d8b744ffe6e23b59ced",
+        "checkpoint_syncer": {
+          "type": "s3",
+          "params": {
+            "bucket": "hyperlane-checkpoints-1758224897-3862",
+            "region": "eu-west-1",
+            "prefix": "eu-west-1",
+            "folder": "validator/2011515/0x201b614beC789E6A042d4f1A99145945118cdEB2"
+          }
+        }
+      },
+      {
+        "chain": "creativenarwhal",
+        "signing_key": "0x3ba6783da7689129b116486f1fea17039d60a97fad49d83c32dbe478dce889a4",
+        "checkpoint_syncer": {
+          "type": "s3",
+          "params": {
+            "bucket": "hyperlane-checkpoints-1758224897-3862",
+            "region": "eu-west-1",
+            "prefix": "eu-west-1",
+            "folder": "validator/8325703/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606"
+          }
+        }
+      },
+      {
+        "chain": "creativenarwhal",
+        "signing_key": "0x192c0261089de5eb0a21773cfb13934aac6d7158b1276d8b744ffe6e23b59ced",
+        "checkpoint_syncer": {
+          "type": "s3",
+          "params": {
+            "bucket": "hyperlane-checkpoints-1758224897-3862",
+            "region": "eu-west-1",
+            "prefix": "eu-west-1",
+            "folder": "validator/8325703/0x201b614beC789E6A042d4f1A99145945118cdEB2"
+          }
+        }
+      }
+    ]
+  },
+  "global": {
+    "agent_tag": "agents-v1.4.0",
+    "cli_version": "latest",
+    "checkpoint_storage": "s3",
+    "ism": {
+      "type": "messageIdMultisigIsm",
+      "validators": [
+        "0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606",
+        "0x201b614beC789E6A042d4f1A99145945118cdEB2"
+      ],
+      "threshold": 2
+    },
+    "s3": {
+      "bucket": "hyperlane-checkpoints-1758224897-3862",
+      "region": "eu-west-1",
+      "prefix": "eu-west-1",
+      "access_key_id": "REPLACE_ME_AWS_ACCESS_KEY_ID",
+      "secret_access_key": "REPLACE_ME_AWS_SECRET_ACCESS_KEY"
+    },
+    "send_test": {
+      "enabled": false,
+      "origin": "angrycapybara",
+      "destination": "creativenarwhal",
+      "amount": "1"
+    }
+  }
+}

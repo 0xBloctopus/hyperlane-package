@@ -1,0 +1,16 @@
+{
+  "owner": "0x29000422a70DF7E8C03cC3bCD3Cf88764EEc2714",
+  "defaultIsm": {
+  "type": "messageIdMultisigIsm",
+  "validators": ["0x164A1dF1711a4929e3506fF6C4DA91Dc86ee25cE", "0x64375b70a6BAe8d0025D49Dee3Cd675aD939eE49"],
+  "threshold": 2
+},
+  "defaultHook": {
+    "type": "merkleTreeHook"
+  },
+  "requiredHook": {
+    "type": "pausableHook",
+    "paused": false,
+    "owner": "0x29000422a70DF7E8C03cC3bCD3Cf88764EEc2714"
+  }
+}
