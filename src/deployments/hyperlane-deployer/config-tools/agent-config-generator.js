@@ -391,8 +391,12 @@ async function buildAgentConfig(args) {
 
     // Add ISM to defaultism configuration for relayer
     if (chainConfig.ism) {
-      config.defaultism[sanitizedName] = chainConfig.ism;
-      logger.debug(`Added ISM for ${sanitizedName} to defaultism config: ${chainConfig.ism}`);
+      if (!config.defaultism[sanitizedName]) {
+        config.defaultism[sanitizedName] = chainConfig.ism;
+        logger.debug(`Added on-chain defaultIsm for ${sanitizedName}: ${chainConfig.ism}`);
+      } else {
+        logger.debug(`Preserving configured defaultism for ${sanitizedName}; on-chain defaultIsm is ${chainConfig.ism}`);
+      }
     }
   }
 
@@ -411,9 +415,20 @@ async function buildAgentConfig(args) {
       config.checkpointSyncer = {
         type: "s3",
         bucket: syncerConfig.params?.bucket || "",
-        region: syncerConfig.params?.region || "",
-        folder: syncerConfig.params?.folder || ""
+        region: syncerConfig.params?.region || ""
       };
+
+      if (syncerConfig.params?.folder) {
+        config.checkpointSyncer.folder = syncerConfig.params.folder;
+      }
+
+      if (syncerConfig.params?.prefix) {
+        config.checkpointSyncer.prefix = syncerConfig.params.prefix;
+      }
+
+      if (syncerConfig.params?.basePath) {
+        config.checkpointSyncer.basePath = syncerConfig.params.basePath;
+      }
     } else if (syncerConfig.type === "gcs") {
       config.checkpointSyncer = {
         type: "gcs",

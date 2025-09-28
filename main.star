@@ -117,7 +117,7 @@ def run(plan, args):
     plan.print("Phase 5: Generating agent configuration")
 
     # Build and run agent configuration generator service with validators
-    validators = getattr(config.agents, "validators", None) if hasattr(config, "agents") else None
+    validators = agent_config.validators
     agents_module.build_agent_config_service(plan, config.chains, configs_dir, validators, global_settings)
 
     # Verify agent configuration has correct addresses
@@ -163,15 +163,68 @@ def run(plan, args):
                     node -e '
                       const { execSync } = require("child_process");
                       const fs=require("fs");
+                      const yaml = require("yaml");
+                      const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+                      const getBalance = (rpc, addr) => {
+                        const balHex = execSync(`cast rpc eth_getBalance ${addr} latest --rpc-url ${rpc}`).toString().trim();
+                        return BigInt(balHex.replace(/"/g, ""));
+                      };
+                      const ensureFunded = (chain, rpc, addr, fundingKey) => {
+                        for (let attempt = 1; attempt <= 3; attempt++) {
+                          let bal = 0n;
+                          try {
+                            bal = getBalance(rpc, addr);
+                          } catch (err) {
+                            console.error(`Balance check failed for ${addr} on ${chain}: ${err.message}`);
+                          }
+                          if (bal >= min) {
+                            console.log(`Sufficient balance for ${addr} on ${chain}`);
+                            return;
+                          }
+                          console.log(`Funding ${addr} on ${chain} (attempt ${attempt}/3)...`);
+                          try {
+                            const tx = execSync(`cast send ${addr} --value ${topUpValue} --private-key ${fundingKey} --rpc-url ${rpc} --legacy`, { stdio: "pipe" });
+                            console.log(`Funded ${addr} on ${chain}: ${tx.toString().trim()}`);
+                          } catch (err) {
+                            console.error(`Funding tx failed for ${addr} on ${chain}: ${err.message}`);
+                          }
+                          sleep(1500);
+                        }
+                        let finalBalance = 0n;
+                        try {
+                          finalBalance = getBalance(rpc, addr);
+                        } catch (err) {
+                          console.error(`Post-funding balance check failed for ${addr} on ${chain}: ${err.message}`);
+                        }
+                        if (finalBalance < min) {
+                          console.warn(`Auto-funding exhausted retries for ${addr} on ${chain}; final balance ${finalBalance}`);
+                        } else {
+                          console.log(`Balance for ${addr} on ${chain} now ${finalBalance}`);
+                        }
+                      };
                       const j=JSON.parse(fs.readFileSync("/configs/agent-config.json","utf8"));
                       const chains=j.chains||{};
                       const validatorsKeys = [];
                       try {
                         const cfgRaw = fs.readFileSync("/work/input-config.yaml","utf8");
-                        // Parse minimal YAML for validators: naive parse to find signing_key entries
-                        const keys = Array.from(cfgRaw.matchAll(/signing_key:[ ]*(0x[0-9a-fA-F]{64})/g)).map(m=>m[1]);
-                        validatorsKeys.push(...keys);
-                      } catch (e) {}
+                        const parsed = yaml.parse(cfgRaw) || {};
+                        let validatorEntries = [];
+                        if (Array.isArray(parsed?.validators)) {
+                          validatorEntries = parsed.validators;
+                        } else if (Array.isArray(parsed?.agents?.validators)) {
+                          validatorEntries = parsed.agents.validators;
+                        }
+                        for (const entry of validatorEntries) {
+                          if (!entry) continue;
+                          const raw = typeof entry.signing_key === "string" ? entry.signing_key.trim() : "";
+                          if (!raw) continue;
+                          const normalized = raw.startsWith("0x") ? raw : `0x${raw}`;
+                          validatorsKeys.push(normalized);
+                        }
+                      } catch (e) {
+                        console.error("Failed to parse validators from /work/input-config.yaml:", e.message);
+                      }
+                      console.log(`Validator keys discovered for auto-funding: ${validatorsKeys.length}`);
                       const rpcByName = {};
                       for (const [n,c] of Object.entries(chains)) {
                         const rpc = (c.rpcUrls&&c.rpcUrls[0]&&c.rpcUrls[0].http)||c.connection?.url;
@@ -182,20 +235,16 @@ def run(plan, args):
                         try{ const out = execSync(`cast wallet address --private-key ${key}`); const addr=out.toString().trim(); uniq.set(addr,key);}catch(e){}
                       }
                       const hypKey = process.env.HYP_KEY || "";
-                      const pk = hypKey.startsWith("0x") ? hypKey.slice(2) : hypKey;
+                      const fundingKey = hypKey ? (hypKey.startsWith("0x") ? hypKey : `0x${hypKey}`) : "";
+                      if (!fundingKey) {
+                        console.log("HYP_KEY not provided; skipping validator auto funding");
+                        process.exit(0);
+                      }
+                      const min = 900_000_000_000_000_000n; // 0.9 ETH keeps validators above large announce fees
+                      const topUpValue = "1ether"; // aggressive top-up for custom chains with expensive announces
                       for (const [n,rpc] of Object.entries(rpcByName)){
-                        for (const [addr,key] of uniq.entries()){
-                          try{
-                            const balHex = execSync(`cast rpc eth_getBalance ${addr} latest --rpc-url ${rpc}`).toString().trim();
-                            const bal = BigInt(balHex.replace(/"/g,''));
-                            const min = 1_000_000_000_000_000n; // 0.001 ETH
-                            if (bal < min){
-                              execSync(`cast send ${addr} --value 0.002ether --private-key=${pk} --rpc-url ${rpc} --legacy`, {stdio:"pipe"});
-                              console.log('Funded', addr, 'on', n);
-                            } else {
-                              console.log(`Sufficient balance for ${addr} on ${n}`);
-                            }
-                          }catch(e){ console.log(`Funding check failed for ${addr} on ${n}: ${e.message}`); }
+                        for (const addr of uniq.keys()){
+                          ensureFunded(n, rpc, addr, fundingKey);
                         }
                       }
                     '
@@ -235,11 +284,12 @@ def run(plan, args):
     )
 
     # Patch checkpointSyncer in agent-config.json if global storage mode demands it (s3/gcs)
-    if getattr(global_settings, "checkpoint_storage", "localStorage") == "s3":
+    if getattr(global_settings, "checkpoint_storage", "localStorage") == "s3" and len(agent_config.validators) == 0:
         bucket = getattr(global_settings.s3, "bucket", "")
         region = getattr(global_settings.s3, "region", "")
         folder = getattr(global_settings.s3, "folder", "validator")
-        # 1) Update agent-config.json to set S3 checkpoint syncer with a unique per-run folder suffix
+        prefix = getattr(global_settings.s3, "prefix", "")
+        # 1) Update agent-config.json to set S3 checkpoint syncer defaults when validators are not configured
         plan.exec(
             service_name="hyperlane-cli",
             recipe=ExecRecipe(
@@ -247,18 +297,20 @@ def run(plan, args):
                     "sh",
                     "-lc",
                     (
-                        "export BUCKET='" + bucket + "' REGION='" + region + "' FOLDER='" + folder + "' RUN_ID=$(date +%s); " +
+                        "export BUCKET='" + bucket + "' REGION='" + region + "' FOLDER='" + folder + "' PREFIX='" + prefix + "'; " +
                         "node -e 'const fs=require(\"fs\");const f=\"/configs/agent-config.json\";let j=JSON.parse(fs.readFileSync(f));"+
-                        "const folder=process.env.FOLDER||\"validator\";const run=process.env.RUN_ID;"+
-                        "j.checkpointSyncer={type:\"s3\",bucket:process.env.BUCKET,region:process.env.REGION,folder:folder+\"/\"+run};"+
-                        "fs.writeFileSync(f,JSON.stringify(j,null,2));console.log(\"checkpointSyncer set to S3 with folder suffix\", j.checkpointSyncer.folder);'"
+                        "const folder=process.env.FOLDER||\"validator\";"+
+                        "const cfg={type:\"s3\",bucket:process.env.BUCKET,region:process.env.REGION,folder};"+
+                        "const prefix=(process.env.PREFIX||\"\").trim();if(prefix){cfg.prefix=prefix;}"+
+                        "j.checkpointSyncer=cfg;"+
+                        "fs.writeFileSync(f,JSON.stringify(j,null,2));console.log(\"checkpointSyncer set to S3 fallback config\", JSON.stringify(cfg));'"
                     ),
                 ],
             ),
         )
         # Note: We no longer attempt to set S3 bucket policies from inside the container.
         # Please ensure the bucket policy allows relayer reads (e.g., public read or IAM permissions).
-    elif getattr(global_settings, "checkpoint_storage", "localStorage") == "gcs":
+    elif getattr(global_settings, "checkpoint_storage", "localStorage") == "gcs" and len(agent_config.validators) == 0:
         bucket = getattr(global_settings.gcs, "bucket", "")
         folder = getattr(global_settings.gcs, "folder", "")
         plan.exec(
@@ -323,7 +375,6 @@ def run(plan, args):
         configs_dir,
         checkpoints_dir,
         global_settings,
-        agent_config.deployer_key,
     )
 
     # Deploy relayer
