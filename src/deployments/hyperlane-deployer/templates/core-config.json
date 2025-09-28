@@ -1,0 +1,12 @@
+{
+  "owner": "{{DEPLOYER_ADDRESS}}",
+  "defaultIsm": {{ISM_CONFIG}},
+  "defaultHook": {
+    "type": "merkleTreeHook"
+  },
+  "requiredHook": {
+    "type": "pausableHook",
+    "paused": false,
+    "owner": "{{DEPLOYER_ADDRESS}}"
+  }
+}

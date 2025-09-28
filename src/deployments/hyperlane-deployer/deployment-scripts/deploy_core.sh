@@ -95,20 +95,20 @@ create_chains_config_file() {
         local rpc="${RPCS[$chain]:-}"
         local chain_id=$(get_chain_id "$chain" "$rpc" "${IDS[$chain]:-}")
 
-        cat >> "$chains_file" <<EOF
-${chain}:
-  chainId: ${chain_id}
-  domainId: ${chain_id}
-  name: ${chain}
-  protocol: ethereum
-  rpcUrls:
-    - http: ${rpc}
-  nativeToken:
-    name: Ether
-    symbol: ETH
-    decimals: 18
-
-EOF
+        {
+            echo "${chain}:"
+            echo "  chainId: ${chain_id}"
+            echo "  domainId: ${chain_id}"
+            echo "  name: ${chain}"
+            echo "  protocol: ethereum"
+            echo "  rpcUrls:"
+            echo "    - http: ${rpc}"
+            echo "  nativeToken:"
+            echo "    name: Ether"
+            echo "    symbol: ETH"
+            echo "    decimals: 18"
+            echo
+        } >> "$chains_file"
     done
 
     log_info "Chains configuration file created at ${chains_file}"
@@ -133,9 +133,24 @@ deploy_core_to_chain() {
     # Registry should already be initialized, just get the path
     local reg_chain_dir="${REGISTRY_DIR}/chains/${chain_name}"
 
+    # If we're forcing a redeploy, clear any cached addresses so the CLI
+    # doesn't short-circuit the deployment on subsequent runs.
+    if [ "${FORCE_DEPLOY_CORE:-false}" = "true" ]; then
+        if [ -f "${reg_chain_dir}/addresses.yaml" ]; then
+            log_debug "FORCE_DEPLOY_CORE=true, removing cached addresses for ${chain_name}"
+            rm -f "${reg_chain_dir}/addresses.yaml"
+        fi
+        local cli_chain_dir="$HOME/.hyperlane/chains/${chain_name}"
+        if [ -f "${cli_chain_dir}/addresses.yaml" ]; then
+            log_debug "FORCE_DEPLOY_CORE=true, removing CLI cached addresses for ${chain_name}"
+            rm -f "${cli_chain_dir}/addresses.yaml"
+        fi
+    fi
+
     # Check if existing addresses are already registered
     if [ -f "${reg_chain_dir}/addresses.yaml" ]; then
         log_info "Found existing addresses for ${chain_name} in registry, skipping deployment"
+        ensure_default_ism_recorded "$chain_name" "$rpc_url" "$reg_chain_dir"
         create_stamp_file "$stamp_file"
         display_deployed_addresses "$chain_name"
         return 0
@@ -154,10 +169,36 @@ deploy_core_to_chain() {
         exit $ERROR_DEPLOYMENT_FAILED
     fi
     
-    # Deploy core contracts with retry logic
-    if deploy_core_with_retry "$chain_name" "$core_cfg"; then
-        # Copy deployment artifacts
-        copy_deployment_artifacts "$chain_name" "$reg_chain_dir"
+    # Prepare isolated registry for deployment to avoid CLI write/read conflicts
+    local temp_registry="/tmp/hyperlane-registry-${chain_name}"
+    rm -rf "$temp_registry"
+    mkdir -p "$temp_registry/chains/${chain_name}"
+    cp "${reg_chain_dir}/metadata.yaml" "$temp_registry/chains/${chain_name}/metadata.yaml"
+
+    cat > "$temp_registry/chains.yaml" <<EOF
+${chain_name}:
+  chainId: ${chain_id}
+  domainId: ${chain_id}
+  name: ${chain_name}
+  protocol: ethereum
+  rpcUrls:
+    - http: ${rpc_url}
+  nativeToken:
+    name: Ether
+    symbol: ETH
+    decimals: 18
+EOF
+
+    # Deploy core contracts into the temporary registry first
+    if deploy_core_with_retry "$chain_name" "$core_cfg" "$temp_registry"; then
+        local temp_addresses="$temp_registry/chains/${chain_name}/addresses.yaml"
+        if [ -f "$temp_addresses" ]; then
+            cp "$temp_addresses" "$reg_chain_dir/addresses.yaml"
+        else
+            log_warn "Addresses file missing in temporary registry for ${chain_name}"
+        fi
+
+        ensure_default_ism_recorded "$chain_name" "$rpc_url" "$reg_chain_dir"
         create_stamp_file "$stamp_file"
         log_info "Successfully deployed core contracts to ${chain_name}"
         # Display the deployed contract addresses
@@ -166,6 +207,12 @@ deploy_core_to_chain() {
         log_error "Failed to deploy core contracts to ${chain_name}"
         exit $ERROR_DEPLOYMENT_FAILED
     fi
+
+    # Restore default registry environment for subsequent operations
+    export HYP_REGISTRY="${REGISTRY_DIR}"
+    export HYP_CHAINS_FILE="${REGISTRY_DIR}/chains.yaml"
+
+    rm -rf "$temp_registry"
 }
 
 create_chain_metadata() {
@@ -201,22 +248,34 @@ initialize_core_config() {
     fi
 
     log_info "Initializing core config"
-    
-    # Try to run hyperlane core init with proper flags
-    # Use --out to specify output location, --registry to use local registry
+
+    # Ensure parent directory exists before invoking the CLI
+    mkdir -p "$(dirname "$config_file")"
+
     # Export chain config path for CLI to recognize custom chains
     export HYP_REGISTRY="${REGISTRY_DIR}"
     export HYP_CHAINS_FILE="${REGISTRY_DIR}/chains.yaml"
 
-    # For CLI v18+, use updated syntax
-    # Provide empty input for owner address prompt (will use default from key)
-    if echo "" | hyperlane core init --yes --out "$config_file" --registry "${REGISTRY_DIR}" 2>&1 | grep -v "TypeError: fetch failed" > /dev/null; then
-        if [ -f "$config_file" ]; then
-            log_info "Successfully created core config with hyperlane core init"
-            return 0
+    if [ "${SKIP_HYPERLANE_CORE_INIT:-false}" != "true" ]; then
+        # Try to run hyperlane core init with proper flags. Provide automatic confirmation
+        # so the script can run unattended.
+        if yes | hyperlane core init --yes --config "$config_file" --registry "${REGISTRY_DIR}" >/tmp/core-init.log 2>&1; then
+            if [ -s "$config_file" ]; then
+                log_info "Successfully created core config with hyperlane core init"
+                log_debug "core init output:\n$(cat /tmp/core-init.log)"
+                return 0
+            fi
+
+            log_warn "hyperlane core init produced an empty config file, falling back to template"
+            rm -f "$config_file"
+        else
+            log_warn "hyperlane core init failed; falling back to template (see /tmp/core-init.log for details)"
+            tail -n 40 /tmp/core-init.log >&2 || true
         fi
+    else
+        log_info "Skipping hyperlane core init due to SKIP_HYPERLANE_CORE_INIT=true"
     fi
-    
+
     # Fallback: Create a valid core config manually
     log_info "Creating core config with ISM type: ${ISM_TYPE:-trustedRelayer}"
     
@@ -247,9 +306,10 @@ initialize_core_config() {
     
     # Generate core configuration from template
     generate_core_config_from_template "$DEPLOYER_ADDRESS" "$ism_config" "${template_dir}/core-config.json" "$config_file"
-    
-    if [ -f "$config_file" ]; then
+
+    if [ -s "$config_file" ]; then
         log_debug "Created core config with ISM type: ${ISM_TYPE:-trustedRelayer}"
+        log_debug "core config contents:\n$(cat "$config_file")"
         return 0
     else
         log_error "Failed to create core config file"
@@ -260,17 +320,18 @@ initialize_core_config() {
 deploy_core_with_retry() {
     local chain_name="$1"
     local config_file="$2"
+    local registry_path="${3:-${REGISTRY_DIR}}"
     local log_file="/tmp/deploy-${chain_name}.log"
     
     log_info "Deploying Hyperlane core to ${chain_name}"
     
     # Ensure registry environment is set for deployment
-    export HYP_REGISTRY="${REGISTRY_DIR}"
-    export HYP_CHAINS_FILE="${REGISTRY_DIR}/chains.yaml"
+    export HYP_REGISTRY="${registry_path}"
+    export HYP_CHAINS_FILE="${registry_path}/chains.yaml"
 
     # For CLI v18+, use updated syntax
     # Define the deployment command with proper registry
-    local deploy_cmd="hyperlane core deploy --chain '${chain_name}' --config '${config_file}' --registry '${REGISTRY_DIR}' --key '${HYP_KEY}' --yes 2>&1 | tee '${log_file}'"
+    local deploy_cmd="hyperlane core deploy --chain '${chain_name}' --config '${config_file}' --registry '${registry_path}' --key '${HYP_KEY}' --yes 2>&1 | tee '${log_file}'"
     
     # Try deployment with retry on nonce errors
     local attempt=0
@@ -311,63 +372,104 @@ deploy_core_with_retry() {
     return 1
 }
 
-extract_ism_address() {
+ensure_default_ism_recorded() {
     local chain_name="$1"
-    local target_dir="$2"
+    local rpc_url="$2"
+    local target_dir="$3"
+
     local addresses_file="${target_dir}/addresses.yaml"
-    
-    # Get mailbox address
-    local mailbox_addr=$(grep "^mailbox:" "$addresses_file" | cut -d' ' -f2 | tr -d '"')
-    
-    if [ -n "$mailbox_addr" ]; then
-        # Get chain RPC URL
-        local rpc_url=""
-        for chain in $CHAINS; do
-            if [ "$chain" = "$chain_name" ]; then
-                rpc_url="${RPCS[$chain]}"
-                break
-            fi
-        done
-        
-        if [ -n "$rpc_url" ]; then
-            # Query defaultIsm from mailbox contract using cast
-            local ism_addr=$(cast call "$mailbox_addr" "defaultIsm()(address)" --rpc-url "$rpc_url" 2>/dev/null || echo "")
-            
-            if [ -n "$ism_addr" ] && [ "$ism_addr" != "" ]; then
-                log_debug "Found ISM address for ${chain_name}: ${ism_addr}"
-                
-                # Add ISM address to addresses.yaml
-                if [ -f "$addresses_file" ]; then
-                    echo "defaultIsm: ${ism_addr}" >> "$addresses_file"
-                else
-                    echo "defaultIsm: ${ism_addr}" > "$addresses_file"
-                fi
-                log_info "Added ISM address to ${chain_name} registry"
-            else
-                log_debug "Could not extract ISM address for ${chain_name}"
-            fi
-        fi
+    local metadata_file="${target_dir}/metadata.yaml"
+
+    if [ ! -f "$addresses_file" ]; then
+        log_warn "addresses.yaml missing for ${chain_name}; cannot record defaultIsm yet"
+        return 0
     fi
+
+    if [ -z "$rpc_url" ] && [ -f "$metadata_file" ]; then
+        rpc_url=$(yq -r '.rpcUrls[0].http // ""' "$metadata_file" 2>/dev/null || echo "")
+    fi
+
+    if [ -z "$rpc_url" ]; then
+        log_warn "RPC URL unavailable for ${chain_name}; skipping defaultIsm lookup"
+        return 0
+    fi
+
+    if ! command -v yq >/dev/null 2>&1; then
+        log_warn "yq not available; cannot inspect ${addresses_file} for ${chain_name}"
+        return 0
+    fi
+
+    local mailbox_addr
+    mailbox_addr=$(yq -r '.mailbox // ""' "$addresses_file" 2>/dev/null || echo "")
+
+    if [ -z "$mailbox_addr" ]; then
+        log_warn "Mailbox address missing in registry for ${chain_name}; skipping defaultIsm lookup"
+        return 0
+    fi
+
+    if ! command -v cast >/dev/null 2>&1; then
+        log_warn "cast binary not available; cannot query defaultIsm for ${chain_name}"
+        return 0
+    fi
+
+    local ism_addr
+    ism_addr=$(cast call "$mailbox_addr" "defaultIsm()(address)" --rpc-url "$rpc_url" 2>/dev/null | tr -d '\r' || echo "")
+
+    if [ -z "$ism_addr" ]; then
+        log_warn "Failed to query defaultIsm for ${chain_name} via ${mailbox_addr}"
+        return 0
+    fi
+
+    ism_addr=$(echo "$ism_addr" | tr '[:upper:]' '[:lower:]')
+
+    if [ "$ism_addr" = "0x0000000000000000000000000000000000000000" ]; then
+        log_warn "defaultIsm for ${chain_name} returned the zero address; leaving registry unchanged"
+        return 0
+    fi
+
+    ISM_VALUE="$ism_addr" yq -i '.defaultIsm = strenv(ISM_VALUE) | (.defaultIsm tag="!!str") | (.defaultIsm style="double") | .interchainSecurityModule = strenv(ISM_VALUE) | (.interchainSecurityModule tag="!!str") | (.interchainSecurityModule style="double")' "$addresses_file"
+    log_info "Recorded defaultIsm ${ism_addr} for ${chain_name} in registry"
+
+    local json_file="${CONFIGS_DIR}/addresses-${chain_name}.json"
+    if [ -f "$json_file" ]; then
+        ISM_VALUE="$ism_addr" yq -i -o=json '.defaultIsm = strenv(ISM_VALUE) | .interchainSecurityModule = strenv(ISM_VALUE) | .ism = strenv(ISM_VALUE)' "$json_file" 2>/dev/null || true
+        log_debug "Updated ${json_file} with defaultIsm ${ism_addr}"
+    fi
+
+    return 0
 }
 
 copy_deployment_artifacts() {
     local chain_name="$1"
     local target_dir="$2"
+    local rpc_url="$3"
     local addresses_file="$HOME/.hyperlane/chains/${chain_name}/addresses.yaml"
-    
+
     if [ -f "$addresses_file" ]; then
         cp "$addresses_file" "$target_dir/"
         log_debug "Copied deployment artifacts for ${chain_name}"
-        
-        # Extract and add ISM address from mailbox contract
-        extract_ism_address "$chain_name" "$target_dir"
+    else
+        log_warn "Expected addresses.yaml not found in CLI cache for ${chain_name}"
+    fi
+
+    ensure_default_ism_recorded "$chain_name" "$rpc_url" "$target_dir"
+    local registry_type
+    registry_type=$(yq -r '.defaultIsm | type' "$target_dir/addresses.yaml" 2>/dev/null || echo "")
+    log_debug "defaultIsm YAML type for ${chain_name} registry: ${registry_type}"
+
+    local cli_chain_dir="$HOME/.hyperlane/chains/${chain_name}"
+    if [ -d "$cli_chain_dir" ]; then
+        ensure_default_ism_recorded "$chain_name" "$rpc_url" "$cli_chain_dir"
+        local cli_type
+        cli_type=$(yq -r '.defaultIsm | type' "$cli_chain_dir/addresses.yaml" 2>/dev/null || echo "")
+        log_debug "defaultIsm YAML type for ${chain_name} CLI cache: ${cli_type}"
     fi
 }
 
 display_deployed_addresses() {
     local chain_name="$1"
     local registry_file="${REGISTRY_DIR}/chains/${chain_name}/addresses.yaml"
-    
+
     if [ -f "$registry_file" ]; then
         log_info "✅ Core contract deployments complete for ${chain_name}:"
         echo ""
@@ -381,6 +483,240 @@ display_deployed_addresses() {
     else
         log_warn "Could not find deployed addresses for ${chain_name}"
     fi
+}
+
+# ============================================================================
+# S3 BUCKET CONFIGURATION
+# ============================================================================
+
+configure_s3_bucket_policy() {
+    local bucket="${S3_BUCKET:-}"
+
+    if [ -z "$bucket" ]; then
+        log_info "Skipping S3 bucket policy configuration (S3_BUCKET not set)"
+        return 0
+    fi
+
+    if ! command -v aws >/dev/null 2>&1; then
+        log_warn "AWS CLI not available; cannot configure S3 bucket policy for ${bucket}"
+        return 0
+    fi
+
+    local region="${S3_REGION:-us-east-1}"
+    local prefix="${S3_PREFIX:-}"
+    local folder="${S3_FOLDER:-validator}"
+
+    folder="${folder#/}"
+    folder="${folder%/}"
+
+    local base_prefix=""
+    if [ -n "$prefix" ]; then
+        base_prefix="${prefix%/}/"
+    fi
+
+    local validator_prefix="${base_prefix}${folder}/"
+
+    # Use a wildcard principal to avoid cross-account AccessDenied errors; access
+    # is still scoped to the validator prefixes defined below.
+    local principal_json="\"*\""
+
+    cat > /tmp/s3-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowValidatorList",
+      "Effect": "Allow",
+      "Principal": ${principal_json},
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::${bucket}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "${validator_prefix}",
+            "${validator_prefix}*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowPrefixInspection",
+      "Effect": "Allow",
+      "Principal": ${principal_json},
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::${bucket}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "${base_prefix}",
+            "${base_prefix}*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AllowValidatorObjects",
+      "Effect": "Allow",
+      "Principal": ${principal_json},
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:PutObjectAcl",
+        "s3:CreateMultipartUpload",
+        "s3:UploadPart",
+        "s3:CompleteMultipartUpload",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": "arn:aws:s3:::${bucket}/${validator_prefix}*"
+    }
+  ]
+}
+EOF
+
+    if aws --region "$region" s3api put-bucket-policy --bucket "$bucket" --policy file:///tmp/s3-policy.json >/tmp/s3-policy.log 2>&1; then
+        log_info "Configured S3 bucket policy for ${bucket} (prefix ${validator_prefix})"
+
+        # Capture resulting policy and a quick prefix listing for debugging
+        if aws --region "$region" s3api get-bucket-policy --bucket "$bucket" >/tmp/s3-policy-effective.json 2>/tmp/s3-policy-effective.err; then
+            log_debug "Effective S3 bucket policy: $(cat /tmp/s3-policy-effective.json)"
+        else
+            log_warn "Unable to read back bucket policy for ${bucket}: $(cat /tmp/s3-policy-effective.err)"
+        fi
+
+        if aws --region "$region" s3 ls "s3://${bucket}/${validator_prefix}" >/tmp/s3-prefix-list.log 2>/tmp/s3-prefix-list.err; then
+            log_debug "Verified read access to s3://${bucket}/${validator_prefix}"
+        else
+            log_warn "Failed to list s3://${bucket}/${validator_prefix}: $(cat /tmp/s3-prefix-list.err)"
+        fi
+    else
+        log_warn "Failed to configure S3 bucket policy for ${bucket}: $(cat /tmp/s3-policy.log)"
+    fi
+}
+
+# ============================================================================
+# CORE CONFIG APPLICATION & IGP FUNDING
+# ============================================================================
+
+hyperlane_supports_command() {
+    local command_name="$1"
+    if ! command -v hyperlane >/dev/null 2>&1; then
+        return 1
+    fi
+
+    # yargs prints the list of commands when an unknown one is requested; guard against false positives
+    local help_output
+    help_output=$(hyperlane help 2>/dev/null || true)
+    if echo "$help_output" | grep -q "hyperlane ${command_name}[^a-zA-Z]"; then
+        return 0
+    fi
+
+    return 1
+}
+
+apply_core_configs() {
+    log_info "Applying Hyperlane core configuration to register remote routers"
+
+    if ! command -v hyperlane >/dev/null 2>&1; then
+        log_warn "Hyperlane CLI not found; skipping core apply step"
+        return 0
+    fi
+
+    local -a apply_chains=()
+    IFS=',' read -r -a apply_chains <<< "${CHAIN_NAMES}"
+    for chain in "${apply_chains[@]}"; do
+        local core_cfg="${CONFIGS_DIR}/core-${chain}.yaml"
+        local apply_stamp="${CONFIGS_DIR}/.done-core-apply-${chain}"
+
+        if [ ! -f "$core_cfg" ]; then
+            log_warn "Core config ${core_cfg} not found; skipping apply for ${chain}"
+            continue
+        fi
+
+        if [ ! -s "$core_cfg" ]; then
+            log_warn "Core config ${core_cfg} is empty; skipping apply for ${chain}"
+            continue
+        fi
+
+        if check_stamp_file "$apply_stamp"; then
+            log_info "Core apply already completed for ${chain}, skipping"
+            continue
+        fi
+
+        log_info "Running core apply for ${chain} using ${core_cfg}"
+        local apply_log="/tmp/core-apply-${chain}.log"
+
+        if hyperlane core apply \
+            --chain "${chain}" \
+            --config "${core_cfg}" \
+            --registry "${REGISTRY_DIR}" \
+            --key "${HYP_KEY}" \
+            --yes 2>&1 | tee "$apply_log"; then
+            log_info "✅ Successfully applied core config on ${chain}"
+            log_debug "core apply log (${chain}):\n$(tail -n 40 "$apply_log")"
+            create_stamp_file "$apply_stamp"
+        else
+            log_warn "⚠️  Failed to apply core config on ${chain}; inspect ${apply_log} for details"
+            tail -n 40 "$apply_log" >&2 || true
+        fi
+    done
+}
+
+fund_igp_deposits() {
+    if [ "${RUN_IGP_FUND:-true}" != "true" ]; then
+        log_info "IGP funding step disabled via RUN_IGP_FUND=${RUN_IGP_FUND:-false}"
+        return 0
+    fi
+
+    if ! hyperlane_supports_command "igp"; then
+        local cli_version
+        cli_version=$(hyperlane --version 2>/dev/null | tail -n 1 | tr -d '\r' || echo "unknown")
+        log_warn "Installed Hyperlane CLI (${cli_version}) does not expose 'hyperlane igp'; skipping automated IGP funding"
+        return 0
+    fi
+
+    local amount="${IGP_FUND_AMOUNT:-0.25}"
+    log_info "Funding Interchain Gas Paymasters with ${amount} ETH per route"
+
+    local -a fund_chains=()
+    IFS=',' read -r -a fund_chains <<< "${CHAIN_NAMES}"
+    for origin in "${fund_chains[@]}"; do
+        local igp_entry
+        igp_entry=$(grep -E "^interchainGasPaymaster:" "${REGISTRY_DIR}/chains/${origin}/addresses.yaml" 2>/dev/null || true)
+        if [ -z "$igp_entry" ]; then
+            log_warn "No interchainGasPaymaster address registered for ${origin}; skipping"
+            continue
+        fi
+
+        for destination in "${fund_chains[@]}"; do
+            if [ "$origin" = "$destination" ]; then
+                continue
+            fi
+
+            local fund_stamp="${CONFIGS_DIR}/.done-igp-fund-${origin}-to-${destination}"
+            if check_stamp_file "$fund_stamp"; then
+                continue
+            fi
+
+            local fund_log="/tmp/igp-fund-${origin}-to-${destination}.log"
+            log_info "Funding IGP on ${origin} for destination ${destination}"
+
+            if hyperlane igp fund \
+                --origin "${origin}" \
+                --destination "${destination}" \
+                --amount "${amount}" \
+                --registry "${REGISTRY_DIR}" \
+                --key "${HYP_KEY}" \
+                --yes 2>&1 | tee "$fund_log"; then
+                log_info "✅ Funded IGP on ${origin} for ${destination}"
+                create_stamp_file "$fund_stamp"
+            else
+                log_warn "⚠️  Failed to fund IGP on ${origin} for ${destination}; inspect ${fund_log}"
+                tail -n 40 "$fund_log" >&2 || true
+            fi
+        done
+    done
 }
 
 # ============================================================================
@@ -400,7 +736,10 @@ main() {
 
     # Initialize chain registry BEFORE any deployments
     initialize_chain_registry
-    
+
+    # Ensure S3 bucket policy allows validator announce/checkpoint operations
+    configure_s3_bucket_policy
+
     # Parse chain configurations
     declare -A RPCS
     declare -A IDS
@@ -426,7 +765,13 @@ main() {
         # Deploy core to this chain
         deploy_core_to_chain "$chain" "$rpc" "$chain_id"
     done
-    
+
+    # Ensure default ISM addresses are captured after all deployments
+    for chain in "${CHAINS[@]}"; do
+        rpc="${RPCS[$chain]:-}"
+        ensure_default_ism_recorded "$chain" "$rpc" "${REGISTRY_DIR}/chains/${chain}"
+    done
+
     # Deploy IGP contracts if enabled (optional but recommended for production)
     if [ "${DEPLOY_IGP:-true}" = "true" ]; then
         log_info "Deploying InterchainGasPaymaster (IGP) contracts..."
@@ -519,6 +864,14 @@ EOF
     else
         log_info "IGP deployment disabled (DEPLOY_IGP=false), using zero address as placeholder"
     fi
+
+    if [ "${RUN_CORE_APPLY:-true}" = "true" ]; then
+        apply_core_configs
+    else
+        log_info "Core apply step disabled via RUN_CORE_APPLY=${RUN_CORE_APPLY:-false}"
+    fi
+
+    fund_igp_deposits
 
     # Mark overall deployment as complete
     create_stamp_file "${CONFIGS_DIR}/.deploy-core"

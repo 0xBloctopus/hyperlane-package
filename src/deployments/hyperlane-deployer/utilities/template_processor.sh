@@ -7,10 +7,15 @@ generate_ism_from_template() {
     local ism_type="$1"
     local deployer_address="$2"
     local template_dir="$3"
-    
+
+    # Normalise the requested ISM type so we accept variants like
+    # "messageIdMultisigIsm" or mixed-case inputs coming from the CLI args file.
+    local normalized_type
+    normalized_type=$(echo "${ism_type:-}" | tr '[:upper:]' '[:lower:]')
+
     # Handle different ISM types
-    case "$ism_type" in
-        "multisig"|"messageIdMultisig")
+    case "$normalized_type" in
+        "multisig"|"messageidmultisig"|"messageidmultisigism")
             # Get validators and threshold from environment
             local validators="${ISM_VALIDATORS:-$deployer_address}"
             local requested_threshold="${ISM_THRESHOLD:-1}"
@@ -45,7 +50,7 @@ generate_ism_from_template() {
 EOF
             ;;
             
-        "merkleRootMultisig"|"merkleRootMultisigIsm")
+        "merklerootmultisig"|"merklerootmultisigism")
             # Get validators and threshold from environment
             local validators="${ISM_VALIDATORS:-$deployer_address}"
             local requested_threshold="${ISM_THRESHOLD:-1}"
@@ -80,7 +85,7 @@ EOF
 EOF
             ;;
             
-        "trustedRelayer")
+        "trustedrelayer"|"trustedrelayerism")
             local relayer="${ISM_RELAYER:-$deployer_address}"
             cat <<EOF
 {
@@ -90,7 +95,7 @@ EOF
 EOF
             ;;
             
-        "pausable")
+        "pausable"|"pausableism")
             local owner="${ISM_OWNER:-$deployer_address}"
             local pauser="${ISM_PAUSER:-$owner}"
             cat <<EOF
@@ -139,12 +144,19 @@ generate_core_config_from_template() {
 }
 EOF
     else
-        # Process the template
-        cp "$template_file" "$output_file"
-        
-        # Replace variables
-        sed -i "s/{{DEPLOYER_ADDRESS}}/$deployer_address/g" "$output_file"
-        sed -i "s/{{ISM_CONFIG}}/$ism_config/g" "$output_file"
+        # Process the template using Python to safely substitute placeholders
+        python3 - "$template_file" "$output_file" "$deployer_address" "$ism_config" <<'PYTHON'
+import sys
+from pathlib import Path
+
+template_path, output_path, deployer_address, ism_config = sys.argv[1:]
+
+template = Path(template_path).read_text()
+rendered = template.replace("{{DEPLOYER_ADDRESS}}", deployer_address)
+rendered = rendered.replace("{{ISM_CONFIG}}", ism_config)
+
+Path(output_path).write_text(rendered)
+PYTHON
     fi
     
     echo "Generated core config at: $output_file"

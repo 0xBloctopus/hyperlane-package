@@ -1,7 +1,7 @@
 FROM node:20-bullseye
 
 # Install foundry (cast, forge, anvil) and yq
-RUN apt-get update && apt-get install -y curl git wget && \
+RUN apt-get update && apt-get install -y curl git wget awscli python3 && \
     curl -L https://foundry.paradigm.xyz | bash && \
     export PATH="/root/.foundry/bin:$PATH" && \
     /root/.foundry/bin/foundryup && \
@@ -39,6 +39,9 @@ COPY utilities/parse_txhash.js /usr/local/bin/parse_txhash.js
 # Copy common utilities
 COPY common.sh /usr/local/bin/common.sh
 COPY utilities/template_processor.sh /usr/local/bin/template_processor.sh
+
+# Provide templates consumed by the deployment scripts
+COPY templates/ /templates/
 
 # Copy agent config generator
 COPY config-tools/agent-config-generator.js /work/agent-config-generator.js
