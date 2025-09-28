@@ -19,7 +19,15 @@ constants = get_constants()
 
 
 def build_validator_service(
-    plan, validator, chains, agent_image, configs_dir, checkpoints_dir, global_settings, chain_signer_key=None
+    plan,
+    validator,
+    chains,
+    agent_image,
+    configs_dir,
+    checkpoints_dir,
+    global_settings,
+    chain_signer_key=None,
+    instance_index=1,
 ):
     """
     Build and deploy a validator service
@@ -74,8 +82,10 @@ def build_validator_service(
 
     # Add the service to the plan with direct entrypoint
     # Use sanitized name for the service name to avoid Kubernetes naming issues
+    suffix = "" if instance_index == 1 else "-{}".format(instance_index)
+
     plan.add_service(
-        name="validator-{}".format(sanitized_name),
+        name="validator-{}{}".format(sanitized_name, suffix),
         config=ServiceConfig(
             image=agent_image,
             env_vars=env_vars,
@@ -114,7 +124,7 @@ def build_validator_env(validator, chain, sanitized_name, global_settings, chain
         "RPC_URL": rpc_url,
         "CONFIG_FILES": "/configs/agent-config.json",
         # Boost logs for announce path and RPC
-        "RUST_LOG": "info,hyperlane_ethereum::contracts::validator_announce=debug,hyperlane_ethereum::rpc_clients=debug",
+        "RUST_LOG": "info,hyperlane_ethereum::contracts::validator_announce=debug,hyperlane_ethereum::rpc_clients=debug,hyperlane_base::types::s3_storage=trace,aws_config=trace,aws_sdk_s3=trace,aws_smithy_http=trace",
     }
 
     # Add checkpoint syncer configuration
@@ -185,12 +195,19 @@ def build_checkpoint_syncer_env(checkpoint_syncer, sanitized_name):
         bucket = safe_get(params, "bucket", "")
         if bucket:
             env["S3_BUCKET"] = str(bucket)
+            env["HYP_CHECKPOINTSYNCER_BUCKET"] = str(bucket)
         region = safe_get(params, "region", "")
         if region:
             env["S3_REGION"] = str(region)
+            env["HYP_CHECKPOINTSYNCER_REGION"] = str(region)
         prefix = safe_get(params, "prefix", "")
         if prefix:
             env["S3_PREFIX"] = str(prefix)
+            env["HYP_CHECKPOINTSYNCER_PREFIX"] = str(prefix)
+        folder = safe_get(params, "folder", "")
+        if folder:
+            env["S3_FOLDER"] = str(folder)
+            env["HYP_CHECKPOINTSYNCER_FOLDER"] = str(folder)
         basePath = safe_get(params, "basePath", "")
         if basePath:
             env["CHECKPOINT_BASE_PATH"] = str(basePath)
@@ -243,5 +260,21 @@ def deploy_validators(
 
     # log_info("Deploying {} validators".format(len(validators)))
 
+    chain_instance_counts = {}
+
     for validator in validators:
-        build_validator_service(plan, validator, chains, agent_image, configs_dir, checkpoints_dir, global_settings, chain_signer_key)
+        chain_name = getattr(validator, "chain", "")
+        current_index = chain_instance_counts.get(chain_name, 0) + 1
+        chain_instance_counts[chain_name] = current_index
+
+        build_validator_service(
+            plan,
+            validator,
+            chains,
+            agent_image,
+            configs_dir,
+            checkpoints_dir,
+            global_settings,
+            chain_signer_key,
+            instance_index=current_index,
+        )

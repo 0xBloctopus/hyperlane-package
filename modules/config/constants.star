@@ -8,6 +8,9 @@ MIN_CHAINS_REQUIRED = 2
 DEFAULT_AGENT_TAG = "agents-v1.4.0"
 DEFAULT_CLI_VERSION = "latest"
 DEFAULT_REGISTRY_MODE = "public"
+RUN_CORE_APPLY_DEFAULT = True
+RUN_IGP_FUND_DEFAULT = True
+DEFAULT_IGP_FUND_AMOUNT = "0.25"
 
 # ============================================================================
 # DIRECTORY PATHS
@@ -31,7 +34,7 @@ AGENT_IMAGE_BASE = "gcr.io/abacus-labs-dev/hyperlane-agent"
 # Pre-built images to use (avoiding image building in Kubernetes)
 # The CLI image needs to be built locally with the deployment scripts
 # Public image published under ghcr.io/fravlaca (override via args if needed)
-HYPERLANE_CLI_IMAGE = "fravlaca/hyperlane-cli:latest"
+HYPERLANE_CLI_IMAGE = "hyperlane-cli:defaultism"
 # Config generator not needed anymore - we just create artifacts directly
 # AGENT_CONFIG_GEN_IMAGE = "agent-config-gen:latest"  # Removed - not needed
 
@@ -98,6 +101,9 @@ def get_constants():
         DEFAULT_AGENT_TAG=DEFAULT_AGENT_TAG,
         DEFAULT_CLI_VERSION=DEFAULT_CLI_VERSION,
         DEFAULT_REGISTRY_MODE=DEFAULT_REGISTRY_MODE,
+        RUN_CORE_APPLY_DEFAULT=RUN_CORE_APPLY_DEFAULT,
+        RUN_IGP_FUND_DEFAULT=RUN_IGP_FUND_DEFAULT,
+        DEFAULT_IGP_FUND_AMOUNT=DEFAULT_IGP_FUND_AMOUNT,
         # Directories
         CONFIGS_DIR=CONFIGS_DIR,
         REGISTRY_DIR=REGISTRY_DIR,

@@ -359,6 +359,14 @@ The package accepts JSON or YAML configuration with the following structure:
 - **validators[].signing_key**: Per-chain validator signing keys
 - **checkpoint_syncer**: Storage configuration for validator checkpoints
 
+#### Global Configuration
+- **registry_mode**: `public` (default) loads upstream registry; set to `local` for on-disk only
+- **agent_tag** / **agent_image_tag**: Image tag overrides for validator/relayer containers
+- **cli_version**: Hyperlane CLI version to install inside the CLI service container
+- **run_core_apply**: Toggle automated `hyperlane core apply` (default `true`)
+- **run_igp_fund**: Toggle automated IGP top-ups (default `true`, skipped if the CLI lacks support)
+- **igp_fund_amount**: Native ETH amount sent per origin/destination pair when funding IGPs (`0.25` by default)
+
 #### Warp Routes Configuration
 - **symbol**: Token symbol for the warp route
 - **topology**: Chain role mapping (`collateral` vs `synthetic`)
@@ -452,7 +460,7 @@ The CLI service (`modules/infrastructure/cli.star`) orchestrates contract deploy
 - **Container**: `fravlaca/hyperlane-cli:latest` 
 - **Purpose**: Execute Hyperlane CLI commands for deployment and configuration
 - **Key Scripts**:
-  - `deploy_core.sh`: Deploys mailbox, IGP, validator announce contracts
+  - `deploy_core.sh`: Deploys mailbox, runs `hyperlane core apply`, and optionally funds IGP routes before validators start
   - `warp_routes.sh`: Deploys and configures token bridge contracts
   - `seed_liquidity.sh`: Seeds initial liquidity for lock_release routes
 
@@ -462,6 +470,9 @@ The CLI service (`modules/infrastructure/cli.star`) orchestrates contract deploy
 - `HYP_KEY`: Private key for deployment operations
 - `ISM_TYPE`: ISM type configuration
 - `REGISTRY_DIR`: Local registry path for deployed addresses
+- `RUN_CORE_APPLY`: Enable/disable remote router wiring (`true` by default)
+- `RUN_IGP_FUND`: Enable/disable IGP top-ups (`true` when the CLI supports it)
+- `IGP_FUND_AMOUNT`: Native token amount (in ETH) sent during IGP funding attempts (default `0.25`)
 
 ### Agent Configuration Generator
 

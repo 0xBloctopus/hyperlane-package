@@ -106,6 +106,10 @@ def build_relayer_env(relay_chains, relayer_key, allow_local_sync, global_settin
             env_vars["HYP_CHECKPOINTSYNCER_BUCKET"] = s3.bucket
         if getattr(s3, "region", ""):
             env_vars["HYP_CHECKPOINTSYNCER_REGION"] = s3.region
+        if getattr(s3, "prefix", ""):
+            env_vars["S3_PREFIX"] = s3.prefix
+        if getattr(s3, "basePath", ""):
+            env_vars["CHECKPOINT_BASE_PATH"] = s3.basePath
         env_vars["HYP_CHECKPOINTSYNCER_TYPE"] = "s3"
 
     return env_vars

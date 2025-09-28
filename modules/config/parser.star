@@ -151,6 +151,27 @@ def parse_global_config(global_config):
         registry_mode=safe_get(
             global_config, "registry_mode", constants.DEFAULT_REGISTRY_MODE
         ),
+        run_core_apply=as_bool(
+            safe_get(
+                global_config,
+                "run_core_apply",
+                constants.RUN_CORE_APPLY_DEFAULT,
+            ),
+            constants.RUN_CORE_APPLY_DEFAULT,
+        ),
+        run_igp_fund=as_bool(
+            safe_get(
+                global_config,
+                "run_igp_fund",
+                constants.RUN_IGP_FUND_DEFAULT,
+            ),
+            constants.RUN_IGP_FUND_DEFAULT,
+        ),
+        igp_fund_amount=safe_get(
+            global_config,
+            "igp_fund_amount",
+            constants.DEFAULT_IGP_FUND_AMOUNT,
+        ),
         checkpoint_storage=safe_get(
             global_config, "checkpoint_storage", "localStorage"
         ),
@@ -158,6 +179,7 @@ def parse_global_config(global_config):
         s3=struct(
             bucket=safe_get(safe_get(global_config, "s3", {}), "bucket", ""),
             region=safe_get(safe_get(global_config, "s3", {}), "region", ""),
+            prefix=safe_get(safe_get(global_config, "s3", {}), "prefix", ""),
             folder=safe_get(safe_get(global_config, "s3", {}), "folder", ""),
             access_key_id=safe_get(safe_get(global_config, "s3", {}), "access_key_id", ""),
             secret_access_key=safe_get(safe_get(global_config, "s3", {}), "secret_access_key", ""),

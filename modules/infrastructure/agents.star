@@ -179,7 +179,7 @@ def generate_chains_yaml(chains, validators = None, global_settings = None):
         yaml_content += "\nvalidators:\n"
         for validator in validators:
             yaml_content += "  - chain: {}\n".format(getattr(validator, "chain", ""))
-            yaml_content += "    signing_key: {}\n".format(getattr(validator, "signing_key", ""))
+            yaml_content += "    signing_key: \"{}\"\n".format(getattr(validator, "signing_key", ""))
             
             # Determine checkpoint syncer from validator or global defaults
             syncer = getattr(validator, "checkpoint_syncer", None)
@@ -205,12 +205,20 @@ def generate_chains_yaml(chains, validators = None, global_settings = None):
                     bucket = (params.bucket if (params and hasattr(params, "bucket")) else getattr(getattr(global_settings, "s3", struct()), "bucket", ""))
                     region = (params.region if (params and hasattr(params, "region")) else getattr(getattr(global_settings, "s3", struct()), "region", ""))
                     folder = (params.folder if (params and hasattr(params, "folder")) else getattr(getattr(global_settings, "s3", struct()), "folder", ""))
+                    prefix = (params.prefix if (params and hasattr(params, "prefix")) else getattr(getattr(global_settings, "s3", struct()), "prefix", ""))
+                    base_path = (params.basePath if (params and hasattr(params, "basePath")) else getattr(getattr(global_settings, "s3", struct()), "basePath", ""))
                     if bucket:
-                        yaml_content += "        bucket: {}\n".format(bucket)
+                        yaml_content += "        bucket: \"{}\"\n".format(bucket)
                     if region:
-                        yaml_content += "        region: {}\n".format(region)
+                        yaml_content += "        region: \"{}\"\n".format(region)
+                    if not folder:
+                        folder = "validator"
                     if folder:
-                        yaml_content += "        folder: {}\n".format(folder)
+                        yaml_content += "        folder: \"{}\"\n".format(folder)
+                    if prefix:
+                        yaml_content += "        prefix: \"{}\"\n".format(prefix)
+                    if base_path:
+                        yaml_content += "        basePath: \"{}\"\n".format(base_path)
                 elif chosen_type == "gcs":
                     bucket = (params.bucket if (params and hasattr(params, "bucket")) else getattr(getattr(global_settings, "gcs", struct()), "bucket", ""))
                     folder = (params.folder if (params and hasattr(params, "folder")) else getattr(getattr(global_settings, "gcs", struct()), "folder", ""))

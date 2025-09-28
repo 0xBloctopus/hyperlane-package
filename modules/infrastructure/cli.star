@@ -169,6 +169,11 @@ def build_cli_environment(chain_info, global_settings, deployer_key):
         "FORCE_DEPLOY_CORE": "true",
         # Enable verbose output from the Node generator when needed
         "DEBUG": "1",
+        "RUN_CORE_APPLY": "true" if global_settings.run_core_apply else "false",
+        "RUN_IGP_FUND": "true" if global_settings.run_igp_fund else "false",
+        "IGP_FUND_AMOUNT": str(global_settings.igp_fund_amount),
+        # Use deterministic template-based configs to avoid interactive CLI prompts
+        "SKIP_HYPERLANE_CORE_INIT": "true",
     }
 
     # Pass AWS credentials to CLI for S3 policy management if configured
@@ -182,6 +187,14 @@ def build_cli_environment(chain_info, global_settings, deployer_key):
             env_vars["AWS_SESSION_TOKEN"] = s3.session_token
         if getattr(s3, "region", ""):
             env_vars["AWS_REGION"] = s3.region
+        if getattr(s3, "bucket", ""):
+            env_vars["S3_BUCKET"] = s3.bucket
+        if getattr(s3, "region", ""):
+            env_vars["S3_REGION"] = s3.region
+        if getattr(s3, "prefix", ""):
+            env_vars["S3_PREFIX"] = s3.prefix
+        if getattr(s3, "folder", ""):
+            env_vars["S3_FOLDER"] = s3.folder
 
     # Add ISM configuration if provided
     if hasattr(global_settings, "ism"):
