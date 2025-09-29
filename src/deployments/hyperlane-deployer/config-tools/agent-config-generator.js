@@ -19,6 +19,13 @@ const CONFIGS_DIR = '/configs';
 const REGISTRY_DIR = '/configs/registry/chains';
 const DEFAULT_TIMEOUT = 5000;
 
+const DEFAULT_TRANSACTION_OVERRIDES = {
+  gasPriceCapMultiplier: 1_000_000,
+  minFeePerGas: 1_000_000_000,
+  minPriorityFeePerGas: 1_000_000_000,
+  minGasPrice: 1_000_000_000,
+};
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -59,6 +66,34 @@ function writeJsonFile(filePath, data) {
     logger.error(`Failed to write to ${filePath}: ${error.message}`);
     throw error;
   }
+}
+
+/**
+ * Normalize transaction override values to numbers when possible
+ */
+function normalizeOverrides(overrides = {}) {
+  const normalized = {};
+  for (const [key, rawValue] of Object.entries(overrides || {})) {
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      continue;
+    }
+
+    if (typeof rawValue === 'string') {
+      const trimmed = rawValue.trim();
+      if (trimmed === '') {
+        continue;
+      }
+      if (trimmed.startsWith('0x') || trimmed.startsWith('0X')) {
+        normalized[key] = trimmed;
+        continue;
+      }
+      const parsed = Number(trimmed);
+      normalized[key] = Number.isFinite(parsed) ? parsed : trimmed;
+    } else {
+      normalized[key] = rawValue;
+    }
+  }
+  return normalized;
 }
 
 /**
@@ -260,7 +295,7 @@ async function fetchBlockHeight(rpc) {
 /**
  * Build configuration for a single chain
  */
-async function buildChainConfig(chain) {
+async function buildChainConfig(chain, defaultOverrides) {
   // Sanitize the chain name for consistency
   const sanitizedName = sanitizeChainName(chain.name);
 
@@ -282,7 +317,8 @@ async function buildChainConfig(chain) {
     validatorAnnounce: '',
     ism: '',
     merkleTreeHook: '',
-    interchainGasPaymaster: '0x0000000000000000000000000000000000' // Required field - use zero address if not deployed
+    interchainGasPaymaster: '0x0000000000000000000000000000000000', // Required field - use zero address if not deployed
+    transactionOverrides: {},
   };
 
   // Start with existing addresses from input - ensure they remain as strings
@@ -323,6 +359,17 @@ async function buildChainConfig(chain) {
     );
   }
 
+  // Merge default transaction overrides with chain-specific overrides
+  const chainOverrides = normalizeOverrides(
+    chain.transactionOverrides || chain.transaction_overrides || {}
+  );
+  const mergedOverrides = {
+    ...defaultOverrides,
+    ...chainOverrides,
+  };
+
+  config.transactionOverrides = mergedOverrides;
+
   // Log missing addresses
   // (These should be caught above if fallback disabled)
   if (!config.mailbox) logger.error(`Missing mailbox address for ${chain.name}`);
@@ -349,6 +396,13 @@ async function buildChainConfig(chain) {
  */
 async function buildAgentConfig(args) {
   const chains = args.chains || [];
+  const defaultOverridesInput = args.transactionOverrides || args.transaction_overrides ||
+    (args.global && (args.global.transactionOverrides || args.global.transaction_overrides)) ||
+    DEFAULT_TRANSACTION_OVERRIDES;
+  const normalizedDefaultOverrides = normalizeOverrides(defaultOverridesInput);
+  const defaultOverrides = Object.keys(normalizedDefaultOverrides).length > 0
+    ? normalizedDefaultOverrides
+    : { ...DEFAULT_TRANSACTION_OVERRIDES };
   const config = { 
     chains: {},
     defaultism: {},
@@ -384,7 +438,7 @@ async function buildAgentConfig(args) {
   // Process each chain
   for (const chain of chains) {
     logger.debug(`Processing chain: ${chain.name}`);
-    const chainConfig = await buildChainConfig(chain);
+    const chainConfig = await buildChainConfig(chain, defaultOverrides);
     // Use sanitized name as the key in the config
     const sanitizedName = sanitizeChainName(chain.name);
     config.chains[sanitizedName] = chainConfig;
