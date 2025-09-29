@@ -95,7 +95,7 @@ def join_strings(arr, sep):
 
 def format_key_value_pairs(pairs, sep="=", delimiter=","):
     """
-    Format key-value pairs into a string
+    Format key-value pairs into a stable, delimited string.
 
     Args:
         pairs: Dictionary of key-value pairs
@@ -103,11 +103,20 @@ def format_key_value_pairs(pairs, sep="=", delimiter=","):
         delimiter: Delimiter between pairs
 
     Returns:
-        Formatted string
+        Formatted string ("k1=v1,k2=v2"), skipping empty values
     """
+    if type(pairs) != "dict":
+        return ""
+
     result = []
-    for key, value in pairs.items():
-        result.append("{}{}{}".format(key, sep, value))
+    for key in sorted(pairs.keys()):
+        value = pairs[key]
+        if value == None or value == "":
+            continue
+        result.append("{}{}{}".format(str(key), sep, str(value)))
+
+    if len(result) == 0:
+        return ""
     return join_strings(result, delimiter)
 
 

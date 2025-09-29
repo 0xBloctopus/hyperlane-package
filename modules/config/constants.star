@@ -5,7 +5,7 @@
 # ============================================================================
 
 MIN_CHAINS_REQUIRED = 2
-DEFAULT_AGENT_TAG = "agents-v1.4.0"
+DEFAULT_AGENT_TAG = "autogas"
 DEFAULT_CLI_VERSION = "latest"
 DEFAULT_REGISTRY_MODE = "public"
 RUN_CORE_APPLY_DEFAULT = True
@@ -29,12 +29,12 @@ RELAYER_DB_DIR = "/data/relayer-db"
 # For now, we'll use the agent image which has the necessary tools
 CLI_IMAGE_NAME = "hyperlane-cli-img"  # Legacy - kept for compatibility
 AGENT_CONFIG_IMAGE_NAME = "agent-config-gen-img"  # Legacy - kept for compatibility
-AGENT_IMAGE_BASE = "gcr.io/abacus-labs-dev/hyperlane-agent"
+AGENT_IMAGE_BASE = "hyperlane-agent"
 
 # Pre-built images to use (avoiding image building in Kubernetes)
 # The CLI image needs to be built locally with the deployment scripts
 # Public image published under ghcr.io/fravlaca (override via args if needed)
-HYPERLANE_CLI_IMAGE = "hyperlane-cli:defaultism"
+HYPERLANE_CLI_IMAGE = "hyperlane-cli:registryfix"
 # Config generator not needed anymore - we just create artifacts directly
 # AGENT_CONFIG_GEN_IMAGE = "agent-config-gen:latest"  # Removed - not needed
 
