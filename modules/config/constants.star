@@ -34,7 +34,7 @@ AGENT_IMAGE_BASE = "hyperlane-agent"
 # Pre-built images to use (avoiding image building in Kubernetes)
 # The CLI image needs to be built locally with the deployment scripts
 # Public image published under ghcr.io/fravlaca (override via args if needed)
-HYPERLANE_CLI_IMAGE = "hyperlane-cli:registryfix"
+HYPERLANE_CLI_IMAGE = "fravlaca/hyperlane-cli:1.0.45"
 # Config generator not needed anymore - we just create artifacts directly
 # AGENT_CONFIG_GEN_IMAGE = "agent-config-gen:latest"  # Removed - not needed
 
