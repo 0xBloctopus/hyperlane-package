@@ -1,0 +1,4 @@
+Hyperlane CLI
+Checking status of message 0x7f4e84448b6a07d471d399a801a67f15fd1986812ca4dbe592f0020758ffeab4 on creativenarwhal
+Message 0x7f4e84448b6a07d471d399a801a67f15fd1986812ca4dbe592f0020758ffeab4 was delivered in 0x3ec7cb952d111e02467b742a53de355e55022a4d8a316511ff1b136947b5e113
+

@@ -1,0 +1,98 @@
+{
+  "chains": {
+    "angrycapybara": {
+      "name": "angrycapybara",
+      "chainId": 2011515,
+      "domainId": 2011515,
+      "protocol": "ethereum",
+      "rpcUrls": [
+        {
+          "http": "https://062013d01f30417cb6e764fe6eea9d01-rpc.network.bloctopus.io"
+        }
+      ],
+      "connection": {
+        "url": "https://062013d01f30417cb6e764fe6eea9d01-rpc.network.bloctopus.io"
+      },
+      "mailbox": "0x2e92F83EfAe7770f47AB5c81856b9AeC42cb14Cb",
+      "validatorAnnounce": "0xA5bfc59984483eE78f12D1Eea79CB4E000614095",
+      "ism": "0x9c23328de396d82cebfd2ce836797b0e6860d039",
+      "merkleTreeHook": "0x591CF04AC6E088D573117faf3c738D846f1c9eFF",
+      "interchainGasPaymaster": "0x0000000000000000000000000000000000000000",
+      "transactionOverrides": {
+        "gasPriceCapMultiplier": 1000000,
+        "minFeePerGas": 1000000000,
+        "minPriorityFeePerGas": 1000000000,
+        "minGasPrice": 1000000000
+      },
+      "index": {
+        "from": 4917
+      }
+    },
+    "creativenarwhal": {
+      "name": "creativenarwhal",
+      "chainId": 8325703,
+      "domainId": 8325703,
+      "protocol": "ethereum",
+      "rpcUrls": [
+        {
+          "http": "https://c93385578ab1429ca1a4b0e06f79897e-rpc.network.bloctopus.io"
+        }
+      ],
+      "connection": {
+        "url": "https://c93385578ab1429ca1a4b0e06f79897e-rpc.network.bloctopus.io"
+      },
+      "mailbox": "0x3c90C1882EE8F41aa1C00FaCDA849e37668bf261",
+      "validatorAnnounce": "0x390180e74b37A92a494BBf31202fDF8195eD650D",
+      "ism": "0xc12d9433a40a012b7e81a3abee3e94fdfb4cfd53",
+      "merkleTreeHook": "0x4253d436977471454EfAD6d3E5AaCec27859a50C",
+      "interchainGasPaymaster": "0x0000000000000000000000000000000000000000",
+      "transactionOverrides": {
+        "gasPriceCapMultiplier": 1000000,
+        "minFeePerGas": 1000000000,
+        "minPriorityFeePerGas": 1000000000,
+        "minGasPrice": 1000000000
+      },
+      "index": {
+        "from": 4918
+      }
+    }
+  },
+  "defaultism": {
+    "angrycapybara": {
+      "type": "messageIdMultisigIsm",
+      "validators": [
+        "0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606",
+        "0x201b614beC789E6A042d4f1A99145945118cdEB2"
+      ],
+      "threshold": 2
+    },
+    "creativenarwhal": {
+      "type": "messageIdMultisigIsm",
+      "validators": [
+        "0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606",
+        "0x201b614beC789E6A042d4f1A99145945118cdEB2"
+      ],
+      "threshold": 2
+    }
+  },
+  "validator": {
+    "type": "hexKey",
+    "key": "0x3ba6783da7689129b116486f1fea17039d60a97fad49d83c32dbe478dce889a4"
+  },
+  "checkpointSyncer": {
+    "type": "s3",
+    "bucket": "hyperlane-checkpoints-1758224897-3862",
+    "region": "eu-west-1",
+    "folder": "validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606",
+    "prefix": "eu-west-1"
+  },
+  "ism": {
+    "type": "messageIdMultisigIsm",
+    "validators": [
+      "0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606",
+      "0x201b614beC789E6A042d4f1A99145945118cdEB2"
+    ],
+    "threshold": 2
+  },
+  "originChainName": "angrycapybara"
+}

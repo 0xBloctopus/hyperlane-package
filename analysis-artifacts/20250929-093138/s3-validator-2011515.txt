@@ -1,0 +1,20 @@
+2025-09-29 08:57:28        701 validator/2011515/0x201b614beC789E6A042d4f1A99145945118cdEB2/announcement.json
+2025-09-29 08:59:08        725 validator/2011515/0x201b614beC789E6A042d4f1A99145945118cdEB2/checkpoint_0_with_id.json
+2025-09-29 00:54:26        726 validator/2011515/0x201b614beC789E6A042d4f1A99145945118cdEB2/checkpoint_1_with_id.json
+2025-09-29 00:55:43        726 validator/2011515/0x201b614beC789E6A042d4f1A99145945118cdEB2/checkpoint_2_with_id.json
+2025-09-29 01:28:52        726 validator/2011515/0x201b614beC789E6A042d4f1A99145945118cdEB2/checkpoint_3_with_id.json
+2025-09-29 01:28:52          1 validator/2011515/0x201b614beC789E6A042d4f1A99145945118cdEB2/checkpoint_latest_index.json
+2025-09-29 08:57:28        180 validator/2011515/0x201b614beC789E6A042d4f1A99145945118cdEB2/metadata_latest.json
+2025-09-29 08:57:25        701 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/announcement.json
+2025-09-29 08:59:06        726 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/checkpoint_0_with_id.json
+2025-09-29 00:54:18        725 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/checkpoint_1_with_id.json
+2025-09-29 00:55:43        725 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/checkpoint_2_with_id.json
+2025-09-29 01:28:54        726 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/checkpoint_3_with_id.json
+2025-09-29 01:28:55          1 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/checkpoint_latest_index.json
+2025-09-28 21:19:25          5 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/debug/aws-test.txt
+2025-09-28 21:19:40          6 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/debug/aws-test2.txt
+2025-09-28 21:22:40          6 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/debug/aws-test3.txt
+2025-09-29 08:57:25        180 validator/2011515/0x7c2fF6fFeA75544Dda66Ce06a7DBf4B96047f606/metadata_latest.json
+
+Total Objects: 17
+   Total Size: 7586
