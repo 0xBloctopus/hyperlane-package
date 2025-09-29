@@ -75,7 +75,7 @@
     ]
   },
   "global": {
-    "agent_tag": "autogas",
+    "agent_tag": "agents-v1.4.0",
     "cli_version": "latest",
     "checkpoint_storage": "s3",
     "ism": {
