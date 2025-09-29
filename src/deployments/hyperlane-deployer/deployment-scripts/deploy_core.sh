@@ -515,6 +515,37 @@ configure_s3_bucket_policy() {
     fi
 
     local validator_prefix="${base_prefix}${folder}/"
+    local bare_validator_prefix="${folder}/"
+
+    local prefixes=("${validator_prefix}" "${validator_prefix}*")
+    local resources=("arn:aws:s3:::${bucket}/${validator_prefix}*")
+
+    if [ "$bare_validator_prefix" != "$validator_prefix" ]; then
+        prefixes+=("${bare_validator_prefix}" "${bare_validator_prefix}*")
+        resources+=("arn:aws:s3:::${bucket}/${bare_validator_prefix}*")
+    fi
+
+    local prefix_json=""
+    local resource_json=""
+
+    local idx
+    for idx in "${!prefixes[@]}"; do
+        local value="${prefixes[$idx]}"
+        if [ "$idx" -lt $((${#prefixes[@]} - 1)) ]; then
+            prefix_json+="            \"${value}\",\n"
+        else
+            prefix_json+="            \"${value}\"\n"
+        fi
+    done
+
+    for idx in "${!resources[@]}"; do
+        local value="${resources[$idx]}"
+        if [ "$idx" -lt $((${#resources[@]} - 1)) ]; then
+            resource_json+="        \"${value}\",\n"
+        else
+            resource_json+="        \"${value}\"\n"
+        fi
+    done
 
     # Use a wildcard principal to avoid cross-account AccessDenied errors; access
     # is still scoped to the validator prefixes defined below.
@@ -533,9 +564,7 @@ configure_s3_bucket_policy() {
       "Condition": {
         "StringLike": {
           "s3:prefix": [
-            "${validator_prefix}",
-            "${validator_prefix}*"
-          ]
+$(printf "%b" "$prefix_json")          ]
         }
       }
     },
@@ -562,14 +591,10 @@ configure_s3_bucket_policy() {
         "s3:GetObject",
         "s3:PutObject",
         "s3:DeleteObject",
-        "s3:PutObjectAcl",
-        "s3:CreateMultipartUpload",
-        "s3:UploadPart",
-        "s3:CompleteMultipartUpload",
-        "s3:AbortMultipartUpload",
-        "s3:ListMultipartUploadParts"
+        "s3:PutObjectAcl"
       ],
-      "Resource": "arn:aws:s3:::${bucket}/${validator_prefix}*"
+      "Resource": [
+$(printf "%b" "$resource_json")      ]
     }
   ]
 }
